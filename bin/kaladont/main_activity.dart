@@ -3,9 +3,10 @@ import 'package:nyxx/nyxx.dart';
 import '../main.dart';
 import 'services/check_word.dart';
 
-void kaladontMainActivity(
-    {required IMessageReceivedEvent event,
-    required EmbedBuilder embedder}) async {
+void kaladontMainActivity({
+  required IMessageReceivedEvent event,
+  required EmbedBuilder embedder,
+}) async {
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
       savedWord = await checkWord(
