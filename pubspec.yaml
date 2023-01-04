@@ -15,4 +15,4 @@ dependencies:
   dio: ^4.0.6
   dotenv: ^4.0.1
   supabase: ^1.1.0
-  nyxx: ^4.3.0
+  nyxx: ^4.4.0

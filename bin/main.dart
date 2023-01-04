@@ -49,14 +49,23 @@ void main() async {
   //final userData = await client.users.authViaEmail(email, password);
   String randomWord = await getRandomWord();
   print(randomWord);
+  savedWord = Word(
+    currentWord: randomWord,
+    previousWord: "",
+    lastGuess: true,
+    victory: false,
+    previousExistsInDictionary: true,
+  );
   bot.onReady.listen((e) {
     print("Ready!");
   });
+
   //sortAndSendToDb(pbClient: client);
   bot.eventsWs.onMessageReceived.listen((event) async {
     var embedder = EmbedBuilder();
     embedder.title = "Power buhtla bot!";
     embedder.color = DiscordColor.blue;
+
     kaladontMainActivity(embedder: embedder, event: event);
   });
 }
