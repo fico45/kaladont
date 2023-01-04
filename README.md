@@ -1,4 +1,4 @@
-# fico45
+# Discord Kaladont bot
 
 Discord bot for a Croatian game called "Kaladont".
 
