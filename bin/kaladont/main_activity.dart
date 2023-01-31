@@ -17,14 +17,20 @@ void kaladontMainActivity({
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       }
       if (savedWord.victory) {
-        embedder.description = "DŽEZDIDAM! KRAJ IKRE!";
+        embedder.description = "Čestitamo! Pobijedili ste!";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else if (savedWord.lastGuess) {
-        embedder.description = "Nova riječ: ${savedWord.currentWord}";
+        String possibleAnswers;
+        savedWord.possibleAnswers == 1000
+            ? possibleAnswers = '1000+'
+            : possibleAnswers = savedWord.possibleAnswers.toString();
+        embedder.description =
+            "Nova riječ: ${savedWord.currentWord}\nMogućih odgovora: $possibleAnswers";
+
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else {
         embedder.description =
-            "Niste dobro nastivili buhtlin niz. Pls opet. Trenutna riječ: ${savedWord.currentWord}";
+            "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${savedWord.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       }
     } else {

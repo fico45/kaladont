@@ -16,3 +16,4 @@ dependencies:
   dotenv: ^4.0.1
   supabase: ^1.1.0
   nyxx: ^4.4.0
+  riverpod: ^2.1.3

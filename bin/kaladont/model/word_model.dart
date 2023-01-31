@@ -4,14 +4,15 @@ class Word {
   final String previousWord;
   bool victory;
   bool previousExistsInDictionary;
+  int possibleAnswers;
 
-  Word({
-    required this.currentWord,
-    required this.lastGuess,
-    required this.previousWord,
-    required this.victory,
-    required this.previousExistsInDictionary,
-  });
+  Word(
+      {required this.currentWord,
+      required this.lastGuess,
+      required this.previousWord,
+      required this.victory,
+      required this.previousExistsInDictionary,
+      required this.possibleAnswers});
 
   void setLastGuess(bool newLastGuess) {
     lastGuess = newLastGuess;

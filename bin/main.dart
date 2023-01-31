@@ -1,6 +1,7 @@
 import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:nyxx/nyxx.dart';
+import 'package:riverpod/riverpod.dart';
 import 'package:supabase/supabase.dart';
 
 import 'kaladont/main_activity.dart';
@@ -17,17 +18,22 @@ String getLastTwoLetters({required String word, required int length}) {
 
 List<String> quotes = [];
 Word savedWord = Word(
-  currentWord: "laminat",
-  previousWord: "lamela",
-  lastGuess: true,
-  victory: false,
-  previousExistsInDictionary: true,
-);
+    currentWord: "laminat",
+    previousWord: "lamela",
+    lastGuess: true,
+    victory: false,
+    previousExistsInDictionary: true,
+    possibleAnswers: 0);
 
 int length = 0;
 
 late final client;
 void main() async {
+  // Where the state of our providers will be stored.
+  // Avoid making this a global variable, for testability purposes.
+  // If you are using Flutter, you do not need this.
+  //final container = ProviderContainer();
+
   var env = DotEnv(includePlatformEnvironment: true)..load();
   print(env['supaBaseUrl']!);
   client = SupabaseClient(
@@ -55,6 +61,7 @@ void main() async {
     lastGuess: true,
     victory: false,
     previousExistsInDictionary: true,
+    possibleAnswers: 0,
   );
   bot.onReady.listen((e) {
     print("Ready!");
