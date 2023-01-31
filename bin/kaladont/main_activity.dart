@@ -17,9 +17,11 @@ void kaladontMainActivity({
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       }
       if (savedWord.victory) {
+        embedder.color = DiscordColor.green;
         embedder.description = "Čestitamo! Pobijedili ste!";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else if (savedWord.lastGuess) {
+        embedder.color = DiscordColor.turquoise;
         String possibleAnswers;
         savedWord.possibleAnswers == 1000
             ? possibleAnswers = '1000+'
@@ -29,6 +31,7 @@ void kaladontMainActivity({
 
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else {
+        embedder.color = DiscordColor.red;
         embedder.description =
             "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${savedWord.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
