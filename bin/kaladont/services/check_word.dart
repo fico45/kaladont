@@ -1,5 +1,4 @@
-import 'package:supabase/supabase.dart';
-
+import '../../consts.dart';
 import '../../main.dart';
 import '../model/word_model.dart';
 
@@ -10,7 +9,6 @@ Future<Word> checkWord(
   String oldWordLastLetters =
       getLastTwoLetters(word: savedWord.currentWord, length: wordLength);
   if (oldWordLastLetters == newWordFirstLetters) {
-    print("Riječ je validna");
     bool isValid = await validateWord(wordToCheck: wordToCheck);
     if (!isValid) {
       savedWord.setPreviousExistsInDictionary(false);
@@ -48,16 +46,14 @@ Future<bool> validateWord({required String wordToCheck}) async {
         .from('words')
         .select()
         .eq('word', wordToCheck)
-        .filter('type', 'in', '("imenica", "glagol")');
+        .filter('type', 'in', Globals.supabaseFilter);
   } catch (e) {
     response = [];
     print(e);
   }
   if (response.isEmpty) {
-    print('Riječ ne postoji u riječniku. :(');
     return false;
   } else {
-    print('Riječ postoji u riječniku!');
     return true;
   }
 }
@@ -69,7 +65,11 @@ Future<int> checkForWin({required String word}) async {
       .from('words')
       .select()
       .like('word', '$lastTwoLetters%')
-      .filter('type', 'in', '("imenica", "glagol")');
+      .filter(
+        'type',
+        'in',
+        Globals.supabaseFilter,
+      );
 
   if (response.isEmpty) {
     print('Riječi koje počinju na $lastTwoLetters ne postoje u rječniku');
