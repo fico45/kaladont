@@ -1,13 +1,15 @@
 import '../../consts.dart';
 import '../../main.dart';
 import '../model/word_model.dart';
+import 'word_check_formatter.dart';
 
 Future<Word> checkWord(
     {required Word savedWord, required String wordToCheck}) async {
   int wordLength = savedWord.currentWord.length - 1;
-  String newWordFirstLetters = getFirstTwoLetters(word: wordToCheck);
-  String oldWordLastLetters =
-      getLastTwoLetters(word: savedWord.currentWord, length: wordLength);
+  String newWordFirstLetters =
+      WordCheckFormatter.getFirstTwoLetters(word: wordToCheck);
+  String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
+      word: savedWord.currentWord, length: wordLength);
   if (oldWordLastLetters == newWordFirstLetters) {
     bool isValid = await validateWord(wordToCheck: wordToCheck);
     if (!isValid) {
@@ -30,14 +32,6 @@ Future<Word> checkWord(
   }
 }
 
-String getFirstTwoLetters({required String word}) {
-  return word[0] + word[1];
-}
-
-String getLastTwoLetters({required String word, required int length}) {
-  return word[length - 1] + word[length];
-}
-
 Future<bool> validateWord({required String wordToCheck}) async {
   List response;
 
@@ -45,22 +39,24 @@ Future<bool> validateWord({required String wordToCheck}) async {
     response = await client
         .from('words')
         .select()
-        .eq('word', wordToCheck)
+        .ilike('word', wordToCheck)
         .filter('type', 'in', Globals.supabaseFilter);
   } catch (e) {
     response = [];
     print(e);
   }
   if (response.isEmpty) {
+//word does not exist in DB
     return false;
   } else {
+//word exists in DB
     return true;
   }
 }
 
 Future<int> checkForWin({required String word}) async {
   String lastTwoLetters =
-      getLastTwoLetters(word: word, length: word.length - 1);
+      WordCheckFormatter.getLastTwoLetters(word: word, length: word.length - 1);
   List response = await client
       .from('words')
       .select()

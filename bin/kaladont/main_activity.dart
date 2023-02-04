@@ -2,6 +2,7 @@ import 'package:nyxx/nyxx.dart';
 
 import '../main.dart';
 import 'services/check_word.dart';
+import 'services/word_check_formatter.dart';
 
 void kaladontMainActivity({
   required IMessageReceivedEvent event,
@@ -10,16 +11,21 @@ void kaladontMainActivity({
   print(event.message.content);
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
+      bool canContinue =
+          WordCheckFormatter.getFirstTwoLetters(word: event.message.content) ==
+              WordCheckFormatter.getLastTwoLetters(
+                  word: savedWord.currentWord,
+                  length: savedWord.currentWord.length - 1);
+      if (gameState.lastPlayerId == event.message.author.id.toString() &&
+          canContinue) {
+        embedder.description =
+            "Ne možete nastaviti vlastiti niz. Trenutna riječ: ${savedWord.currentWord}";
+        await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        return;
+      }
       savedWord = await checkWord(
           savedWord: savedWord, wordToCheck: event.message.content);
       if (!savedWord.previousExistsInDictionary) {
-        if (gameState.lastPlayerId == event.message.author.id.toString()) {
-          embedder.description =
-              "Ne možete nastaviti vlastiti niz. Trenutna riječ: ${savedWord.currentWord}";
-          await event.message.channel
-              .sendMessage(MessageBuilder.embed(embedder));
-          return;
-        }
         embedder.description = "Riječ koju ste upisali ne postoji u rječniku!";
         embedder.color = DiscordColor.red;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));

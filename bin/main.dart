@@ -9,14 +9,6 @@ import 'kaladont/main_activity.dart';
 import 'kaladont/model/word_model.dart';
 import 'kaladont/services/get_random_word.dart';
 
-Future<void> addToFile(String textToAdd) async {
-  await File("bin/quotes.txt").writeAsString(textToAdd, mode: FileMode.append);
-}
-
-String getLastTwoLetters({required String word, required int length}) {
-  return word[length - 1] + word[length];
-}
-
 List<String> quotes = [];
 Word savedWord = Word(
     currentWord: "laminat",
