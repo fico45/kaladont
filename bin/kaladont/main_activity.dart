@@ -1,5 +1,6 @@
 import 'package:nyxx/nyxx.dart';
 
+import '../consts.dart';
 import '../main.dart';
 import 'services/check_word.dart';
 import 'services/word_check_formatter.dart';
@@ -20,6 +21,12 @@ void kaladontMainActivity({
           canContinue) {
         embedder.description =
             "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${savedWord.currentWord}";
+        await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        return;
+      }
+      if (Globals.usedWords.contains(event.message.content.toLowerCase())) {
+        embedder.description = "Riječ je već korištena!";
+        embedder.color = DiscordColor.yellow;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         return;
       }
@@ -44,6 +51,7 @@ void kaladontMainActivity({
             ? possibleAnswers = '1000+'
             : possibleAnswers = savedWord.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
+        Globals.usedWords.add(savedWord.currentWord);
         embedder.description =
             "Nova riječ: ${savedWord.currentWord}\nMogućih odgovora: $possibleAnswers";
 

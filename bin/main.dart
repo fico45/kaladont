@@ -9,7 +9,6 @@ import 'kaladont/main_activity.dart';
 import 'kaladont/model/word_model.dart';
 import 'kaladont/services/get_random_word.dart';
 
-List<String> quotes = [];
 Word savedWord = Word(
     currentWord: "laminat",
     previousWord: "lamela",
