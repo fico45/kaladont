@@ -27,7 +27,18 @@ Word savedWord = Word(
     possibleAnswers: 0);
 
 int length = 0;
-bool isKaladontStarted = false;
+
+class KaladontGameState {
+  KaladontGameState(
+      {required this.isKaladontStarted, this.lastPlayerId, this.gameChannelId});
+  bool isKaladontStarted;
+  String? lastPlayerId;
+  String? gameChannelId;
+}
+
+KaladontGameState gameState = KaladontGameState(
+  isKaladontStarted: false,
+);
 late final client;
 void main() async {
   // Where the state of our providers will be stored.
@@ -46,8 +57,7 @@ void main() async {
   CommandsPlugin commands = CommandsPlugin(
     prefix: (message) => '!',
     options: CommandsOptions(
-      logErrors: true,
-    ),
+        logErrors: true, defaultCommandType: CommandType.slashOnly),
   );
 
   final bot = NyxxFactory.createNyxxWebsocket(
@@ -69,11 +79,12 @@ void main() async {
     embedder.title = "Power buhtla bot!";
     embedder.color = DiscordColor.blue;
     print('Message: ' + event.message.content);
-    if (isKaladontStarted) {
+    if (gameState.isKaladontStarted &&
+        gameState.gameChannelId == event.message.channel.id.toString()) {
       kaladontMainActivity(embedder: embedder, event: event);
     }
   });
-  ChatCommand kaladontStart = ChatCommand(
+  ChatCommand kaladontStart = ChatCommand.slashOnly(
       'kaladont-start',
       "Započni novu igru Kaladonta",
       id('kaladont-start', (IChatContext context) async {
@@ -87,7 +98,9 @@ void main() async {
           previousExistsInDictionary: true,
           possibleAnswers: 0,
         );
-        isKaladontStarted = true;
+        gameState.isKaladontStarted = true;
+        gameState.gameChannelId = context.channel.id.toString();
+
         context.respond(MessageBuilder.content(
             'Nova igra kaladonta započeta! Početna riječ: $randomWord'));
       }));
