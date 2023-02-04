@@ -43,6 +43,7 @@ void kaladontMainActivity({
         embedder.color = DiscordColor.green;
         embedder.description = "Čestitamo! Pobijedili ste!";
         gameState.isKaladontStarted = false;
+        Globals.usedWords.clear();
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else if (savedWord.lastGuess) {
         embedder.color = DiscordColor.turquoise;
