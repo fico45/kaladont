@@ -7,6 +7,7 @@ void kaladontMainActivity({
   required IMessageReceivedEvent event,
   required EmbedBuilder embedder,
 }) async {
+  print(event.message.content);
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
       savedWord = await checkWord(
@@ -19,6 +20,7 @@ void kaladontMainActivity({
       if (savedWord.victory) {
         embedder.color = DiscordColor.green;
         embedder.description = "Čestitamo! Pobijedili ste!";
+        isKaladontStarted = false;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       } else if (savedWord.lastGuess) {
         embedder.color = DiscordColor.turquoise;
@@ -36,10 +38,6 @@ void kaladontMainActivity({
             "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${savedWord.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
       }
-    } else {
-      embedder.description =
-          "Niste pogodili riječ! Trenutna riječ: ${savedWord.currentWord}";
-      await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
     }
   }
 }
