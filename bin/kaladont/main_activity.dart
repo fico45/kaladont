@@ -11,24 +11,26 @@ void kaladontMainActivity({
   print(event.message.content);
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
-      bool canContinue =
-          WordCheckFormatter.getFirstTwoLetters(word: event.message.content) ==
-              WordCheckFormatter.getLastTwoLetters(
-                  word: savedWord.currentWord,
-                  length: savedWord.currentWord.length - 1);
+      bool canContinue = WordCheckFormatter.getFirstTwoLetters(
+              word: event.message.content.toLowerCase()) ==
+          WordCheckFormatter.getLastTwoLetters(
+              word: savedWord.currentWord.toLowerCase(),
+              length: savedWord.currentWord.length - 1);
       if (gameState.lastPlayerId == event.message.author.id.toString() &&
           canContinue) {
         embedder.description =
-            "Ne možete nastaviti vlastiti niz. Trenutna riječ: ${savedWord.currentWord}";
+            "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${savedWord.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         return;
       }
       savedWord = await checkWord(
-          savedWord: savedWord, wordToCheck: event.message.content);
+          savedWord: savedWord,
+          wordToCheck: event.message.content.toLowerCase());
       if (!savedWord.previousExistsInDictionary) {
         embedder.description = "Riječ koju ste upisali ne postoji u rječniku!";
         embedder.color = DiscordColor.red;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        return;
       }
       if (savedWord.victory) {
         embedder.color = DiscordColor.green;
@@ -46,6 +48,7 @@ void kaladontMainActivity({
             "Nova riječ: ${savedWord.currentWord}\nMogućih odgovora: $possibleAnswers";
 
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        return;
       } else {
         embedder.color = DiscordColor.red;
         embedder.description =

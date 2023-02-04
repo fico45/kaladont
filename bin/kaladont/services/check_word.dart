@@ -39,7 +39,7 @@ Future<bool> validateWord({required String wordToCheck}) async {
     response = await client
         .from('words')
         .select()
-        .ilike('word', wordToCheck)
+        .ilike('word', wordToCheck.toLowerCase())
         .filter('type', 'in', Globals.supabaseFilter);
   } catch (e) {
     response = [];
