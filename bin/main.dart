@@ -18,6 +18,7 @@ Word savedWord = Word(
     possibleAnswers: 0);
 
 int length = 0;
+bool isProcessingWord = false;
 
 class KaladontGameState {
   KaladontGameState(
@@ -71,7 +72,8 @@ void main() async {
     embedder.color = DiscordColor.blue;
     print('Message: ' + event.message.content);
     if (gameState.isKaladontStarted &&
-        gameState.gameChannelId == event.message.channel.id.toString()) {
+        gameState.gameChannelId == event.message.channel.id.toString() &&
+        !isProcessingWord) {
       kaladontMainActivity(embedder: embedder, event: event);
     }
   });
