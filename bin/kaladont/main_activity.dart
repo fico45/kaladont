@@ -12,12 +12,12 @@ void kaladontMainActivity({
   print(event.message.content);
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
-      isProcessingWord = true;
       bool canContinue = WordCheckFormatter.getFirstTwoLetters(
               word: event.message.content.toLowerCase()) ==
           WordCheckFormatter.getLastTwoLetters(
               word: savedWord.currentWord.toLowerCase(),
               length: savedWord.currentWord.length - 1);
+      isProcessingWord = true;
       if (gameState.lastPlayerId == event.message.author.id.toString() &&
           canContinue) {
         embedder.description =
