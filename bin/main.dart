@@ -84,7 +84,7 @@ void main() async {
         String randomWord = await getRandomWord();
         print(randomWord);
         savedWord = Word(
-          currentWord: randomWord,
+          currentWord: randomWord.toLowerCase(),
           previousWord: "",
           lastGuess: true,
           victory: false,

@@ -51,6 +51,7 @@ void kaladontMainActivity({
         gameState.lastPlayerId = '';
         Globals.usedWords.clear();
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        isProcessingWord = false;
       } else if (savedWord.lastGuess) {
         embedder.color = DiscordColor.turquoise;
         String possibleAnswers;
