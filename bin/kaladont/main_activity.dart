@@ -12,6 +12,12 @@ void kaladontMainActivity({
   print(event.message.content);
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
+      if (event.message.content.contains("%")) {
+        embedder.description = "Zločestica bezobrazna!";
+        await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
+        isProcessingWord = false;
+        return;
+      }
       bool canContinue = WordCheckFormatter.getFirstTwoLetters(
               word: event.message.content.toLowerCase()) ==
           WordCheckFormatter.getLastTwoLetters(
