@@ -13,6 +13,7 @@ void kaladontMainActivity({
   if (event.message.content != '') {
     if (!event.message.content.contains(" ")) {
       if (event.message.content.contains("%")) {
+        //sql injection prevention. Doesn't work though.
         embedder.description = "Zločestica bezobrazna!";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;

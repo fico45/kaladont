@@ -41,6 +41,7 @@ Future<bool> validateWord({required String wordToCheck}) async {
         .select()
         .ilike('word', wordToCheck.toLowerCase())
         .filter('type', 'in', Globals.supabaseFilter);
+    print("Ovoliko riječi je u bazi: ${response.length}");
   } catch (e) {
     response = [];
     print(e);
@@ -61,11 +62,7 @@ Future<int> checkForWin({required String word}) async {
       .from('words')
       .select()
       .like('word', '$lastTwoLetters%')
-      .filter(
-        'type',
-        'in',
-        Globals.supabaseFilter,
-      );
+      .filter('type', 'in', Globals.supabaseFilter);
 
   if (response.isEmpty) {
     print('Riječi koje počinju na $lastTwoLetters ne postoje u rječniku');
