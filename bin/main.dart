@@ -1,4 +1,3 @@
-import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:nyxx/nyxx.dart';
 import 'package:nyxx_commands/nyxx_commands.dart';
@@ -7,6 +6,7 @@ import 'package:supabase/supabase.dart';
 
 import 'kaladont/main_activity.dart';
 import 'kaladont/model/word_model.dart';
+import 'kaladont/providers/player_provider.dart';
 import 'kaladont/services/get_random_word.dart';
 
 Word savedWord = Word(
@@ -36,7 +36,7 @@ void main() async {
   // Where the state of our providers will be stored.
   // Avoid making this a global variable, for testability purposes.
   // If you are using Flutter, you do not need this.
-  //final container = ProviderContainer();
+  final container = ProviderContainer();
 
   var env = DotEnv(includePlatformEnvironment: true)..load();
   print(env['supaBaseUrl']!);
@@ -45,7 +45,7 @@ void main() async {
     env['supaBaseAPIKey']!,
   );
   //final userData = await client.users.authViaEmail(email, password);
-
+  await container.read(playersProvider.notifier).loadPlayers();
   CommandsPlugin commands = CommandsPlugin(
     prefix: (message) => '!',
     options: CommandsOptions(
@@ -74,7 +74,8 @@ void main() async {
     if (gameState.isKaladontStarted &&
         gameState.gameChannelId == event.message.channel.id.toString() &&
         !isProcessingWord) {
-      kaladontMainActivity(embedder: embedder, event: event);
+      kaladontMainActivity(
+          embedder: embedder, event: event, providerContainer: container);
     }
   });
   ChatCommand kaladontStart = ChatCommand.slashOnly(

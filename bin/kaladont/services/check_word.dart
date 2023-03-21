@@ -1,10 +1,14 @@
+import 'package:riverpod/riverpod.dart';
+
 import '../../consts.dart';
 import '../../main.dart';
 import '../model/word_model.dart';
 import 'word_check_formatter.dart';
 
-Future<Word> checkWord(
-    {required Word savedWord, required String wordToCheck}) async {
+Future<Word> checkWord({
+  required Word savedWord,
+  required String wordToCheck,
+}) async {
   int wordLength = savedWord.currentWord.length - 1;
   String newWordFirstLetters =
       WordCheckFormatter.getFirstTwoLetters(word: wordToCheck);
