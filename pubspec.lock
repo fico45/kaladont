@@ -81,6 +81,14 @@ packages:
       url: "https://pub.dev"
     source: hosted
     version: "4.1.0"
+  eterl:
+    dependency: transitive
+    description:
+      name: eterl
+      sha256: b73f6e1f63f90e4d921d4c2058d5628fdabd4cac5a5cebf8451fcd5c668760a7
+      url: "https://pub.dev"
+    source: hosted
+    version: "1.0.2"
   file:
     dependency: transitive
     description:
@@ -173,10 +181,10 @@ packages:
     dependency: "direct main"
     description:
       name: nyxx
-      sha256: "5de86ecfbc42358a0f78d2be0bb5ede29b3dec3c5f00027bf346165dca8a7a1d"
+      sha256: "79bc1ddd01472f1f1acc22a36b81b5a67e997188e655b8dbcc8193f6ca65573a"
       url: "https://pub.dev"
     source: hosted
-    version: "4.4.1"
+    version: "4.5.1"
   nyxx_commands:
     dependency: "direct main"
     description:
@@ -378,4 +386,4 @@ packages:
     source: hosted
     version: "1.0.2"
 sdks:
-  dart: ">=2.18.0 <3.0.0"
+  dart: ">=2.18.6 <3.0.0"

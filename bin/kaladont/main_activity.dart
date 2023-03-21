@@ -3,6 +3,7 @@ import 'package:nyxx/nyxx.dart';
 import '../consts.dart';
 import '../main.dart';
 import 'services/check_word.dart';
+import 'services/player_service.dart';
 import 'services/word_check_formatter.dart';
 
 void kaladontMainActivity({
@@ -56,6 +57,11 @@ void kaladontMainActivity({
         embedder.description = "Čestitamo! Pobijedili ste!";
         gameState.isKaladontStarted = false;
         gameState.lastPlayerId = '';
+        await awardPoints(
+            playerDiscordId: event.message.author.id.id,
+            numberOfPoints: 3,
+            playerDiscordUsername: event.message.author.username,
+            playerDiscordAvatar: event.message.author.avatarURL());
         Globals.usedWords.clear();
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
@@ -66,6 +72,12 @@ void kaladontMainActivity({
             ? possibleAnswers = '1000+'
             : possibleAnswers = savedWord.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
+        await awardPoints(
+          playerDiscordId: event.message.author.id.id,
+          numberOfPoints: 1,
+          playerDiscordUsername: event.message.author.username,
+          playerDiscordAvatar: event.message.author.avatarURL(),
+        );
         Globals.usedWords.add(savedWord.currentWord);
         embedder.description =
             "Nova riječ: ${savedWord.currentWord}\nMogućih odgovora: $possibleAnswers";
