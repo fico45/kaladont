@@ -78,6 +78,24 @@ void main() async {
           embedder: embedder, event: event, providerContainer: container);
     }
   });
+  ChatCommand kaladontHighScores = ChatCommand.slashOnly(
+      'kaladont-ranks',
+      'Rank lista Kaladont igre',
+      id('kaladont-ranks', (IChatContext context) async {
+        final provider = container.read(playersProvider);
+        List<EmbedFieldBuilder> fields = [];
+        for (var player in provider) {
+          fields
+              .add(EmbedFieldBuilder(player.username, player.score.toString()));
+        }
+        EmbedBuilder newEmbed = EmbedBuilder()
+          ..color = DiscordColor.green
+          ..title = "Rank lista Kaladont igre"
+          ..fields.addAll(fields);
+        final message = MessageBuilder.embed(newEmbed);
+        context.respond(message);
+      }));
+
   ChatCommand kaladontStart = ChatCommand.slashOnly(
       'kaladont-start',
       "Započni novu igru Kaladonta",
@@ -99,6 +117,7 @@ void main() async {
             'Nova igra kaladonta započeta! Početna riječ: $randomWord'));
       }));
   commands.addCommand(kaladontStart);
+  commands.addCommand(kaladontHighScores);
 
   bot.onReady.listen((e) {
     print("Ready!");

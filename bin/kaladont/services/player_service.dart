@@ -1,5 +1,4 @@
 import 'package:riverpod/riverpod.dart';
-import 'package:supabase/supabase.dart';
 
 import '../../main.dart';
 import '../model/player_model.dart';
