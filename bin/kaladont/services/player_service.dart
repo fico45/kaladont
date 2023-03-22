@@ -25,12 +25,18 @@ Future<bool> awardPoints({
         'player_username': playerDiscordUsername,
         'player_avatar': playerDiscordAvatar,
       });
+      providerContainer.read(playersProvider.notifier).addPlayer(Player(
+          id: playerDiscordId,
+          username: playerDiscordUsername,
+          score: numberOfPoints,
+          playerAvatar: playerDiscordAvatar));
     } else {
       final updateResponse = await client
           .from('players')
           .update({'score': numberOfPoints + discordPlayerInDb.score}).eq(
               'discord_id', playerDiscordId);
     }
+    discordPlayerInDb.score += numberOfPoints;
 
     return true;
   } catch (e) {
