@@ -83,10 +83,11 @@ void main() async {
       'Rank lista Kaladont igre',
       id('kaladont-ranks', (IChatContext context) async {
         final provider = container.read(playersProvider);
+        container.read(playersProvider.notifier).sortPlayers();
         List<EmbedFieldBuilder> fields = [];
         for (var player in provider) {
-          fields
-              .add(EmbedFieldBuilder(player.username, player.score.toString()));
+          fields.add(EmbedFieldBuilder(
+              "${player.username}  ${player.score.toString()}"));
         }
         EmbedBuilder newEmbed = EmbedBuilder()
           ..color = DiscordColor.green

@@ -13,8 +13,12 @@ class PlayersProvider extends StateNotifier<List<Player>> {
 
   void addPlayer(Player player) {
     final newState = [...state, player];
-    newState.sort((a, b) => b.score.compareTo(a.score));
+
     state = newState;
+  }
+
+  void sortPlayers() {
+    state.sort((a, b) => b.score.compareTo(a.score));
   }
 
   Future<void> loadPlayers() async {
@@ -32,7 +36,7 @@ class PlayersProvider extends StateNotifier<List<Player>> {
       for (var element in newPlayers) {
         print(element.username);
       }
-      newPlayers.sort((a, b) => b.score.compareTo(a.score));
+
       state = newPlayers;
     } catch (e) {
       print(e);
