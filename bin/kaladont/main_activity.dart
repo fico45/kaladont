@@ -64,7 +64,7 @@ void kaladontMainActivity({
           playerDiscordId: event.message.author.id.id,
           numberOfPoints: 3,
           playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar: event.message.author.avatarURL(),
+          playerDiscordAvatar: event.message.author.avatarUrl(),
           providerContainer: providerContainer,
         );
         Globals.usedWords.clear();
@@ -81,7 +81,7 @@ void kaladontMainActivity({
           playerDiscordId: event.message.author.id.id,
           numberOfPoints: 1,
           playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar: event.message.author.avatarURL(),
+          playerDiscordAvatar: event.message.author.avatarUrl(),
           providerContainer: providerContainer,
         );
         Globals.usedWords.add(savedWord.currentWord);

@@ -48,8 +48,7 @@ void main() async {
   await container.read(playersProvider.notifier).loadPlayers();
   CommandsPlugin commands = CommandsPlugin(
     prefix: (message) => '!',
-    options: CommandsOptions(
-        logErrors: true, defaultCommandType: CommandType.slashOnly),
+    options: CommandsOptions(logErrors: true, type: CommandType.slashOnly),
   );
 
   final bot = NyxxFactory.createNyxxWebsocket(
@@ -78,7 +77,7 @@ void main() async {
           embedder: embedder, event: event, providerContainer: container);
     }
   });
-  ChatCommand kaladontHighScores = ChatCommand.slashOnly(
+  ChatCommand kaladontHighScores = ChatCommand(
       'kaladont-ranks',
       'Rank lista Kaladont igre',
       id('kaladont-ranks', (IChatContext context) async {
@@ -97,7 +96,7 @@ void main() async {
         context.respond(message);
       }));
 
-  ChatCommand kaladontStart = ChatCommand.slashOnly(
+  ChatCommand kaladontStart = ChatCommand(
       'kaladont-start',
       "Započni novu igru Kaladonta",
       id('kaladont-start', (IChatContext context) async {

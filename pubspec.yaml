@@ -12,9 +12,9 @@ dev_dependencies:
   
 
 dependencies:
-  dio: ^4.0.6
+  dio: ^5.1.1
   dotenv: ^4.0.1
-  supabase: ^1.1.0
-  nyxx: ^4.5.0
-  nyxx_commands: ^4.3.0
-  riverpod: ^2.1.3
+  supabase: ^1.6.3
+  nyxx: ^5.0.1
+  nyxx_commands: ^5.0.1
+  riverpod: ^2.3.2
