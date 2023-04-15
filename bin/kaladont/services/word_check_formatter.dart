@@ -3,9 +3,7 @@ class WordCheckFormatter {
     String wordToCheck = word.toLowerCase();
     String substring = wordToCheck.substring(0, 3);
     bool containsNJ = substring.contains('nj');
-    return containsNJ
-        ? wordToCheck.substring(0, 3)
-        : wordToCheck.substring(0, 2);
+    return containsNJ ? substring : wordToCheck.substring(0, 2);
   }
 
   static String getLastTwoLetters({required String word, required int length}) {
