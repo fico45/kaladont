@@ -7,30 +7,20 @@ Future<Word> checkWord({
   required Word savedWord,
   required String wordToCheck,
 }) async {
-  int wordLength = savedWord.currentWord.length - 1;
-  String newWordFirstLetters =
-      WordCheckFormatter.getFirstTwoLetters(word: wordToCheck);
-  String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
-      word: savedWord.currentWord, length: wordLength);
-  if (oldWordLastLetters == newWordFirstLetters) {
-    bool isValid = await validateWord(wordToCheck: wordToCheck);
-    if (!isValid) {
-      savedWord.setPreviousExistsInDictionary(false);
-      return savedWord;
-    } else {
-      int possibleAnswers = await checkForWin(word: wordToCheck);
-      bool isWin = possibleAnswers == 0 ? true : false;
-      return Word(
-          currentWord: wordToCheck,
-          lastGuess: true,
-          previousWord: savedWord.currentWord,
-          victory: isWin,
-          previousExistsInDictionary: true,
-          possibleAnswers: possibleAnswers);
-    }
-  } else {
-    savedWord.setLastGuess(false);
+  bool isValid = await validateWord(wordToCheck: wordToCheck);
+  if (!isValid) {
+    savedWord.setPreviousExistsInDictionary(false);
     return savedWord;
+  } else {
+    int possibleAnswers = await checkForWin(word: wordToCheck);
+    bool isWin = possibleAnswers == 0 ? true : false;
+    return Word(
+        currentWord: wordToCheck,
+        lastGuess: true,
+        previousWord: savedWord.currentWord,
+        victory: isWin,
+        previousExistsInDictionary: true,
+        possibleAnswers: possibleAnswers);
   }
 }
 

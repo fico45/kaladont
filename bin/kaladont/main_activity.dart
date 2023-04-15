@@ -13,7 +13,9 @@ void kaladontMainActivity({
   required ProviderContainer providerContainer,
 }) async {
   print(event.message.content);
+  //check if the message contains any content
   if (event.message.content != '') {
+    //check if it's a single word and not a sentence
     if (!event.message.content.contains(" ")) {
       if (event.message.content.contains("%")) {
         //sql injection prevention. Doesn't work though.
@@ -22,11 +24,13 @@ void kaladontMainActivity({
         isProcessingWord = false;
         return;
       }
-      bool canContinue = WordCheckFormatter.getFirstTwoLetters(
-              word: event.message.content.toLowerCase()) ==
-          WordCheckFormatter.getLastTwoLetters(
-              word: savedWord.currentWord.toLowerCase(),
-              length: savedWord.currentWord.length - 1);
+      String newWordFirstLetters =
+          WordCheckFormatter.getFirstTwoLetters(word: savedWord.currentWord);
+      String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
+          word: savedWord.currentWord,
+          length: savedWord.currentWord.length - 1);
+      //check if the previous and currnet work even match
+      bool canContinue = newWordFirstLetters == oldWordLastLetters;
       isProcessingWord = true;
       if (gameState.lastPlayerId == event.message.author.id.toString() &&
           canContinue) {
@@ -43,10 +47,14 @@ void kaladontMainActivity({
         isProcessingWord = false;
         return;
       }
-      savedWord = await checkWord(
-        savedWord: savedWord,
-        wordToCheck: event.message.content.toLowerCase(),
-      );
+      if (canContinue) {
+        savedWord = await checkWord(
+          savedWord: savedWord,
+          wordToCheck: event.message.content.toLowerCase(),
+        );
+      } else {
+        savedWord.setLastGuess(false);
+      }
       if (!savedWord.previousExistsInDictionary) {
         embedder.description =
             "Riječ koju ste upisali ne postoji u rječniku!\nRiječ treba početi sa ${WordCheckFormatter.getLastTwoLetters(word: savedWord.currentWord.toLowerCase(), length: savedWord.currentWord.length - 1)}";
@@ -55,12 +63,13 @@ void kaladontMainActivity({
         isProcessingWord = false;
         return;
       }
+      //final response
       if (savedWord.victory) {
         embedder.color = DiscordColor.green;
         embedder.description = "Čestitamo! Pobijedili ste!";
         gameState.isKaladontStarted = false;
         gameState.lastPlayerId = '';
-        await awardPoints(
+        await PlayerService.awardPoints(
           playerDiscordId: event.message.author.id.id,
           numberOfPoints: 3,
           playerDiscordUsername: event.message.author.username,
@@ -77,7 +86,7 @@ void kaladontMainActivity({
             ? possibleAnswers = '1000+'
             : possibleAnswers = savedWord.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
-        await awardPoints(
+        await PlayerService.awardPoints(
           playerDiscordId: event.message.author.id.id,
           numberOfPoints: 1,
           playerDiscordUsername: event.message.author.username,
