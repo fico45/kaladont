@@ -31,7 +31,7 @@ class KaladontGameState {
 KaladontGameState gameState = KaladontGameState(
   isKaladontStarted: false,
 );
-late final client;
+late final SupabaseClient client;
 void main() async {
   // Where the state of our providers will be stored.
   // Avoid making this a global variable, for testability purposes.
@@ -69,7 +69,7 @@ void main() async {
     var embedder = EmbedBuilder();
     embedder.title = "Power buhtla bot!";
     embedder.color = DiscordColor.blue;
-    print('Message: ' + event.message.content);
+    print('Message: ${event.message.content}');
     if (gameState.isKaladontStarted &&
         gameState.gameChannelId == event.message.channel.id.toString() &&
         !isProcessingWord) {

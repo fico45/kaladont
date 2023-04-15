@@ -1,5 +1,3 @@
-import 'package:riverpod/riverpod.dart';
-
 import '../../consts.dart';
 import '../../main.dart';
 import '../model/word_model.dart';
