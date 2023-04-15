@@ -18,7 +18,7 @@ Future<String> getRandomWord() async {
   }
   int randomGeneratedWordIndex = Random().nextInt(randomWord.length);
   print(randomWord.length);
-  return 'badanj';
+
   return randomWord[randomGeneratedWordIndex]['word'];
 }
 
