@@ -11,14 +11,14 @@ Future<String> getRandomWord() async {
         .from('words')
         .select('word')
         .filter('type', 'in', '("imenica", "glagol")')
-        .like('word', '%$randomCharacter' + '%');
+        .like('word', '%$randomCharacter%');
     if (randomWord.isNotEmpty) {
       break;
     }
   }
-  int random = randomWord.length;
   int randomGeneratedWordIndex = Random().nextInt(randomWord.length);
   print(randomWord.length);
+  return 'badanj';
   return randomWord[randomGeneratedWordIndex]['word'];
 }
 
