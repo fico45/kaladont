@@ -24,8 +24,9 @@ void kaladontMainActivity({
         isProcessingWord = false;
         return;
       }
+      String inputWord = event.message.content.toLowerCase();
       String newWordFirstLetters =
-          WordCheckFormatter.getFirstTwoLetters(word: savedWord.currentWord);
+          WordCheckFormatter.getFirstTwoLetters(word: inputWord);
       String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
           word: savedWord.currentWord,
           length: savedWord.currentWord.length - 1);
@@ -40,7 +41,7 @@ void kaladontMainActivity({
         isProcessingWord = false;
         return;
       }
-      if (Globals.usedWords.contains(event.message.content.toLowerCase())) {
+      if (Globals.usedWords.contains(inputWord)) {
         embedder.description = "Riječ je već korištena!";
         embedder.color = DiscordColor.yellow;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
@@ -50,7 +51,7 @@ void kaladontMainActivity({
       if (canContinue) {
         savedWord = await checkWord(
           savedWord: savedWord,
-          wordToCheck: event.message.content.toLowerCase(),
+          wordToCheck: inputWord,
         );
       } else {
         savedWord.setLastGuess(false);
