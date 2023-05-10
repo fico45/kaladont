@@ -100,6 +100,11 @@ void main() async {
       'kaladont-start',
       "Započni novu igru Kaladonta",
       id('kaladont-start', (IChatContext context) async {
+        if (gameState.isKaladontStarted) {
+          context.respond(MessageBuilder.content(
+              'Ne možete započeti novu sesiju igre dok je već jedna u tijeku.'));
+          return;
+        }
         String randomWord = await getRandomWord();
         print(randomWord);
         savedWord = Word(
