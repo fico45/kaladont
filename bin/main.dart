@@ -39,7 +39,7 @@ void main() async {
   final container = ProviderContainer();
 
   var env = DotEnv(includePlatformEnvironment: true)..load();
-  print(env['supaBaseUrl']!);
+
   client = SupabaseClient(
     env['supaBaseUrl']!,
     env['supaBaseAPIKey']!,
@@ -52,7 +52,7 @@ void main() async {
   );
 
   final bot = NyxxFactory.createNyxxWebsocket(
-    "MTAyMTg2NjM4NDgzOTQyMTk2Mw.GJfg3f.J1YW-Xuc0uqDHQ_TxRL5uG0q8vMsO8kWcpu4aM",
+    env['websocketKey']!,
     GatewayIntents.messageContent | GatewayIntents.allUnprivileged,
   )
     ..registerPlugin(Logging()) // Default logging plugin
