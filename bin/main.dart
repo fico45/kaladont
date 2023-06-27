@@ -4,6 +4,7 @@ import 'package:nyxx_commands/nyxx_commands.dart';
 import 'package:riverpod/riverpod.dart';
 import 'package:supabase/supabase.dart';
 
+import 'consts.dart';
 import 'kaladont/main_activity.dart';
 import 'kaladont/model/word_model.dart';
 import 'kaladont/providers/player_provider.dart';
@@ -38,11 +39,11 @@ void main() async {
   // If you are using Flutter, you do not need this.
   final container = ProviderContainer();
 
-  var env = DotEnv(includePlatformEnvironment: true)..load();
+  Tokens.loadTokens();
 
   client = SupabaseClient(
-    env['supaBaseUrl']!,
-    env['supaBaseAPIKey']!,
+    Tokens.supabaseUrl,
+    Tokens.supabaseApiKey,
   );
   //final userData = await client.users.authViaEmail(email, password);
   await container.read(playersProvider.notifier).loadPlayers();
@@ -52,7 +53,7 @@ void main() async {
   );
 
   final bot = NyxxFactory.createNyxxWebsocket(
-    env['websocketKey']!,
+    Tokens.discordToken,
     GatewayIntents.messageContent | GatewayIntents.allUnprivileged,
   )
     ..registerPlugin(Logging()) // Default logging plugin
