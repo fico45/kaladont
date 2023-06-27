@@ -3,6 +3,8 @@ import 'package:riverpod/riverpod.dart';
 
 import '../consts.dart';
 import '../main.dart';
+import 'providers/game_state_provider.dart';
+import 'providers/saved_word_provider.dart';
 import 'services/check_word.dart';
 import 'services/player_service.dart';
 import 'services/word_check_formatter.dart';
@@ -17,6 +19,9 @@ void kaladontMainActivity({
   if (event.message.content != '') {
     //check if it's a single word and not a sentence
     if (!event.message.content.contains(" ")) {
+      final wordProvider = providerContainer.read(savedWordProvider.notifier);
+      final gameState =
+          providerContainer.read(gameStateProvider.notifier).state;
       if (event.message.content.contains("%")) {
         //sql injection prevention. Doesn't work though.
         embedder.description = "Zločestica bezobrazna!";
@@ -28,15 +33,15 @@ void kaladontMainActivity({
       String newWordFirstLetters =
           WordCheckFormatter.getFirstTwoLetters(word: inputWord);
       String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
-          word: savedWord.currentWord,
-          length: savedWord.currentWord.length - 1);
+          word: wordProvider.state.currentWord,
+          length: wordProvider.state.currentWord.length - 1);
       //check if the previous and currnet work even match
       bool canContinue = newWordFirstLetters == oldWordLastLetters;
       isProcessingWord = true;
       if (gameState.lastPlayerId == event.message.author.id.toString() &&
           canContinue) {
         embedder.description =
-            "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${savedWord.currentWord}";
+            "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${wordProvider.state.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
         return;
@@ -49,23 +54,23 @@ void kaladontMainActivity({
         return;
       }
       if (canContinue) {
-        savedWord = await checkWord(
-          savedWord: savedWord,
+        wordProvider.state = await checkWord(
+          savedWord: wordProvider.state,
           wordToCheck: inputWord,
         );
       } else {
-        savedWord.setLastGuess(false);
+        wordProvider.state.setLastGuess(false);
       }
-      if (!savedWord.previousExistsInDictionary) {
+      if (!wordProvider.state.previousExistsInDictionary) {
         embedder.description =
-            "Riječ koju ste upisali ne postoji u rječniku!\nRiječ treba početi sa ${WordCheckFormatter.getLastTwoLetters(word: savedWord.currentWord.toLowerCase(), length: savedWord.currentWord.length - 1)}";
+            "Riječ koju ste upisali ne postoji u rječniku!\nRiječ treba početi sa ${WordCheckFormatter.getLastTwoLetters(word: wordProvider.state.currentWord.toLowerCase(), length: wordProvider.state.currentWord.length - 1)}";
         embedder.color = DiscordColor.red;
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
         return;
       }
       //final response
-      if (savedWord.victory) {
+      if (wordProvider.state.victory) {
         embedder.color = DiscordColor.green;
         embedder.description = "Čestitamo! Pobijedili ste!";
         gameState.isKaladontStarted = false;
@@ -80,12 +85,12 @@ void kaladontMainActivity({
         Globals.usedWords.clear();
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
-      } else if (savedWord.lastGuess) {
+      } else if (wordProvider.state.lastGuess) {
         embedder.color = DiscordColor.turquoise;
         String possibleAnswers;
-        savedWord.possibleAnswers == 1000
+        wordProvider.state.possibleAnswers == 1000
             ? possibleAnswers = '1000+'
-            : possibleAnswers = savedWord.possibleAnswers.toString();
+            : possibleAnswers = wordProvider.state.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
         await PlayerService.awardPoints(
           playerDiscordId: event.message.author.id.id,
@@ -94,9 +99,9 @@ void kaladontMainActivity({
           playerDiscordAvatar: event.message.author.avatarUrl(),
           providerContainer: providerContainer,
         );
-        Globals.usedWords.add(savedWord.currentWord);
+        Globals.usedWords.add(wordProvider.state.currentWord);
         embedder.description =
-            "Nova riječ: ${savedWord.currentWord}\nMogućih odgovora: $possibleAnswers";
+            "Nova riječ: ${wordProvider.state.currentWord}\nMogućih odgovora: $possibleAnswers";
 
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
@@ -104,7 +109,7 @@ void kaladontMainActivity({
       } else {
         embedder.color = DiscordColor.red;
         embedder.description =
-            "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${savedWord.currentWord}";
+            "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${wordProvider.state.currentWord}";
         await event.message.channel.sendMessage(MessageBuilder.embed(embedder));
         isProcessingWord = false;
         return;

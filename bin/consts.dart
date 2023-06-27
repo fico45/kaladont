@@ -3,6 +3,8 @@ import 'package:dotenv/dotenv.dart';
 class Globals {
   static const String supabaseFilter = '("imenica","glagol","pridjev")';
   static List<String> usedWords = [];
+  static const chars =
+      'AaBbCcĆćČčDdĐđEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsŠšTtUuVvZzŽž';
 }
 
 class Tokens {

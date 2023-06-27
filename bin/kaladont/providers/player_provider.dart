@@ -1,6 +1,6 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../../main.dart';
+import '../client.dart';
 import '../model/player_model.dart';
 
 final playersProvider =
@@ -23,7 +23,7 @@ class PlayersProvider extends StateNotifier<List<Player>> {
 
   Future<void> loadPlayers() async {
     try {
-      final getPlayersResponse = await client.from('players').select();
+      final getPlayersResponse = await SPC.client.from('players').select();
       List<Player> newPlayers = [];
       for (var element in getPlayersResponse) {
         newPlayers.add(Player(

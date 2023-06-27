@@ -1,6 +1,6 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../../main.dart';
+import '../client.dart';
 import '../model/player_model.dart';
 import '../providers/player_provider.dart';
 
@@ -19,7 +19,7 @@ class PlayerService {
               orElse: () =>
                   Player(id: 0, username: '', score: 0, playerAvatar: ''));
       if (discordPlayerInDb.id == 0) {
-        final insertResponse = await client.from('players').insert({
+        final insertResponse = await SPC.client.from('players').insert({
           'discord_id': playerDiscordId,
           'score': numberOfPoints,
           'player_username': playerDiscordUsername,
@@ -31,7 +31,7 @@ class PlayerService {
             score: numberOfPoints,
             playerAvatar: playerDiscordAvatar));
       } else {
-        final updateResponse = await client
+        final updateResponse = await SPC.client
             .from('players')
             .update({'score': numberOfPoints + discordPlayerInDb.score}).eq(
                 'discord_id', playerDiscordId);

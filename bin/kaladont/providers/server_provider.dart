@@ -1,6 +1,6 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../../main.dart';
+import '../client.dart';
 import '../model/server_model.dart';
 
 final serversProvider =
@@ -19,7 +19,8 @@ class ServersProvider extends StateNotifier<List<DiscordServer>> {
 
   Future<void> loadServers() async {
     try {
-      final getServersResponse = await client.from('discord_servers').select();
+      final getServersResponse =
+          await SPC.client.from('discord_servers').select();
       List<DiscordServer> newServers = [];
       for (var element in getServersResponse) {
         newServers.add(DiscordServer.fromJson(getServersResponse[0]));

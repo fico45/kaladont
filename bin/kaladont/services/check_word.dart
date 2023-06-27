@@ -1,5 +1,5 @@
 import '../../consts.dart';
-import '../../main.dart';
+import '../client.dart';
 import '../model/word_model.dart';
 import 'word_check_formatter.dart';
 
@@ -28,7 +28,7 @@ Future<bool> validateWord({required String wordToCheck}) async {
   List response;
 
   try {
-    response = await client
+    response = await SPC.client
         .from('words')
         .select()
         .ilike('word', wordToCheck.toLowerCase())
@@ -50,7 +50,7 @@ Future<bool> validateWord({required String wordToCheck}) async {
 Future<int> checkForWin({required String word}) async {
   String lastTwoLetters =
       WordCheckFormatter.getLastTwoLetters(word: word, length: word.length - 1);
-  List response = await client
+  List response = await SPC.client
       .from('words')
       .select()
       .like('word', '$lastTwoLetters%')

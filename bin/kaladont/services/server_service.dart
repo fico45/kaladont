@@ -1,6 +1,6 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../../main.dart';
+import '../client.dart';
 
 class ServerService {
   static Future<bool> insertDiscordServerId({
@@ -8,7 +8,7 @@ class ServerService {
     required ProviderContainer providerContainer,
   }) async {
     try {
-      final insertResponse = await client.from('discord_servers').insert({
+      final insertResponse = await SPC.client.from('discord_servers').insert({
         'server_id': serverId,
       });
       return true;
