@@ -3,6 +3,7 @@
 FROM dart:stable AS build
 
 # Resolve app dependencies.
+
 WORKDIR /
 COPY pubspec.* /
 RUN dart pub get
@@ -13,6 +14,7 @@ COPY . .
 RUN dart pub get --offline
 RUN dart compile exe bin/main.dart -o bin/server
 
+
 # Build minimal serving image from AOT-compiled `/server` and required system
 # libraries and configuration files stored in `/runtime/` from the build stage.
 FROM scratch
@@ -21,6 +23,7 @@ COPY --from=build /bin/server /app/bin/
 
 # Include files in the /public directory to enable static asset handling
 COPY --from=build /public/ /public
+
 
 # Start server.
 EXPOSE 8080
