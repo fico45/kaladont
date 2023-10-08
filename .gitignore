@@ -5,5 +5,5 @@
 # Conventional directory for build output.
 build/
 .env*
-
+docker.dart
 .vscode/

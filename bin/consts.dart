@@ -14,16 +14,16 @@ class Tokens {
   static String discordToken = '';
 
   static void loadTokens() {
-    // var env = DotEnv(includePlatformEnvironment: true)..load();
+    var env = DotEnv(includePlatformEnvironment: true)..load();
     supabaseUrl = bool.hasEnvironment('supaBaseUrl')
         ? const String.fromEnvironment('supaBaseUrl')
-        : 'empty'; //env['supaBaseUrl'] ?? '';
+        : env['supaBaseUrl'] ?? '';
     supabaseApiKey = bool.hasEnvironment('supaBaseAPIKey')
         ? const String.fromEnvironment('supaBaseAPIKey')
-        : 'empty'; //env['supaBaseAPIKey'] ?? '';
+        : env['supaBaseAPIKey'] ?? '';
     discordToken = bool.hasEnvironment('discordToken')
         ? const String.fromEnvironment('discordToken')
-        : 'empty'; //env['discordToken'] ?? '';
+        : env['discordToken'] ?? '';
 
     print('Env?\n$supabaseUrl\n$supabaseApiKey\n$discordToken');
   }
