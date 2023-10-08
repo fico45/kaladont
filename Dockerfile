@@ -8,7 +8,7 @@ FROM dart:3.0.2 AS build
 
 # Resolve app dependencies.
 WORKDIR /kaladont
-COPY pubspec.* /kaladont
+COPY pubspec.* /kaladont/
 RUN dart pub get
 
 # Copy app source code and AOT compile it.
@@ -29,7 +29,7 @@ COPY --from=build /runtime/ /
 COPY --from=build /kaladont/bin/server /app/bin/
 
 # Include files in the /public directory to enable static asset handling
-COPY --from=build /kaladont/public/ /public
+COPY --from=build /kaladont/public/ /public/
 ARG supabaseApiKey
 ARG discordToken
 ARG supabaseUrl
