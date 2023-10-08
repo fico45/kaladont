@@ -2,9 +2,13 @@
 # Specify the Dart SDK base image version using dart:<version> (ex: dart:2.12)
 FROM dart:3.0.2 AS build
 
+ARG supabaseApiKey
+ARG discordToken
+ARG supabaseUrl
 
-
-
+RUN echo "supaBaseUrl='${supabaseUrl}'"  
+RUN echo "supaBaseAPIKey='${supabaseApiKey}'" 
+RUN echo "discordToken='${discordToken}'"
 
 # Resolve app dependencies.
 WORKDIR /kaladont
