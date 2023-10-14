@@ -1,6 +1,6 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../client.dart';
+import '../repository/client_repository.dart';
 import '../model/player_model.dart';
 
 final playersProvider =

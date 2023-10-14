@@ -1,7 +1,8 @@
+
 import 'package:nyxx/nyxx.dart';
 import 'package:supabase/supabase.dart';
 
-import '../consts.dart';
+import '../../consts.dart';
 
 class BotClient {
   static final bot = NyxxFactory.createNyxxWebsocket(

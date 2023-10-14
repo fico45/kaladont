@@ -1,6 +1,6 @@
 import '../../consts.dart';
-import '../client.dart';
 import '../model/word_model.dart';
+import '../repository/client_repository.dart';
 import 'word_check_formatter.dart';
 
 Future<Word> checkWord({
