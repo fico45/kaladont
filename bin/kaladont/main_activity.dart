@@ -50,7 +50,7 @@ void kaladontMainActivity({
               "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${wordProvider.state.currentWord}",
           event: event,
           providerContainer: providerContainer,
-          type: TypeOfMessage.failedGuess,
+          type: TypeOfMessage.warning,
         );
 
         PlatformPluginRepository.isProcessingWord = false;
