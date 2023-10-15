@@ -12,7 +12,6 @@ import 'services/word_check_formatter.dart';
 
 void kaladontMainActivity({
   required IMessageReceivedEvent event,
-  required EmbedBuilder embedder,
   required ProviderContainer providerContainer,
 }) async {
   print(event.message.content);
@@ -57,8 +56,6 @@ void kaladontMainActivity({
         return;
       }
       if (Globals.usedWords.contains(inputWord)) {
-        embedder.color = DiscordColor.yellow;
-
         await MessageController.sendMessage(
           message: "Riječ je već korištena!",
           event: event,
@@ -110,7 +107,6 @@ void kaladontMainActivity({
 
         PlatformPluginRepository.isProcessingWord = false;
       } else if (wordProvider.state.lastGuess) {
-        embedder.color = DiscordColor.turquoise;
         String possibleAnswers;
         wordProvider.state.possibleAnswers == 1000
             ? possibleAnswers = '1000+'

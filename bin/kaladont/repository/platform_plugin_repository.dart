@@ -42,15 +42,12 @@ class PlatformPluginRepository {
   }) {
     return BotClient.bot.eventsWs.onMessageReceived.listen((event) async {
       final gameState = container.read(gameStateProvider.notifier).state;
-      var embedder = EmbedBuilder();
-      embedder.title = "Power buhtla bot!";
-      embedder.color = DiscordColor.blue;
+
       print('Message: ${event.message.content}');
       if (gameState.isKaladontStarted &&
           gameState.gameChannelId == event.message.channel.id.toString() &&
           !isProcessingWord) {
-        kaladontMainActivity(
-            embedder: embedder, event: event, providerContainer: container);
+        kaladontMainActivity(event: event, providerContainer: container);
       }
     });
   }
