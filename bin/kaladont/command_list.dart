@@ -47,16 +47,16 @@ class ChatCommands {
         for (var player in players) {
           fields.add(
             EmbedFieldBuilder(
-              isInline: true,
-              name: 'Igrač',
-              value: "${player.username}  ${player.score.toString()}",
+              isInline: false,
+              name: player.username,
+              value: "${player.score}",
             ),
           );
         }
         EmbedBuilder newEmbed = EmbedBuilder()
           ..color = DiscordColor.fromRgb(124, 252, 0)
           ..title = "Rank lista Kaladont igre"
-          ..fields?.addAll(fields);
+          ..fields = fields;
         final message = MessageBuilder(embeds: [newEmbed]);
         context.respond(message);
       }));
