@@ -11,7 +11,7 @@ import 'services/player_service.dart';
 import 'services/word_check_formatter.dart';
 
 void kaladontMainActivity({
-  required IMessageReceivedEvent event,
+  required MessageCreateEvent event,
   required ProviderContainer providerContainer,
 }) async {
   print(event.message.content);
@@ -90,10 +90,11 @@ void kaladontMainActivity({
         gameState.isKaladontStarted = false;
         gameState.lastPlayerId = '';
         await PlayerService.awardPoints(
-          playerDiscordId: event.message.author.id.id,
+          playerDiscordId: event.message.author.id.value,
           numberOfPoints: 3,
           playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar: event.message.author.avatarUrl(),
+          playerDiscordAvatar:
+              event.message.author.avatar?.url.toString() ?? '',
           providerContainer: providerContainer,
         );
         Globals.usedWords.clear();
@@ -113,10 +114,11 @@ void kaladontMainActivity({
             : possibleAnswers = wordProvider.state.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
         await PlayerService.awardPoints(
-          playerDiscordId: event.message.author.id.id,
+          playerDiscordId: event.message.author.id.value,
           numberOfPoints: 1,
           playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar: event.message.author.avatarUrl(),
+          playerDiscordAvatar:
+              event.message.author.avatar?.url.toString() ?? '',
           providerContainer: providerContainer,
         );
         Globals.usedWords.add(wordProvider.state.currentWord);

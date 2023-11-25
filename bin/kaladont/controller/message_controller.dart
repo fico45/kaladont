@@ -11,18 +11,19 @@ enum TypeOfMessage {
 }
 
 class MessageController {
-  static Future<IMessage> sendMessage({
+  static Future<void> sendMessage({
     required String message,
-    required IMessageReceivedEvent event,
+    required MessageCreateEvent event,
     required ProviderContainer providerContainer,
     required TypeOfMessage type,
   }) async {
+    List<EmbedBuilder> embeds = [];
     final embedder = EmbedBuilder();
     embedder.title = _getMessageTitle(type);
     embedder.color = _getMessageColor(type);
     embedder.description = message;
-    return await event.message.channel
-        .sendMessage(MessageBuilder.embed(embedder));
+    embeds.add(embedder);
+    await event.message.channel.sendMessage(MessageBuilder(embeds: embeds));
   }
 
   static String _getMessageTitle(TypeOfMessage type) {
@@ -47,19 +48,19 @@ class MessageController {
   static DiscordColor _getMessageColor(TypeOfMessage type) {
     switch (type) {
       case TypeOfMessage.correctGuess:
-        return DiscordColor.cornflowerBlue;
+        return DiscordColor.fromRgb(0, 255, 255);
       case TypeOfMessage.failedGuess:
-        return DiscordColor.rose;
+        return DiscordColor.fromRgb(255, 0, 255);
       case TypeOfMessage.startGame:
-        return DiscordColor.green;
+        return DiscordColor.fromRgb(0, 255, 0);
       case TypeOfMessage.endGame:
-        return DiscordColor.gold;
+        return DiscordColor.fromRgb(255, 255, 0);
       case TypeOfMessage.warning:
-        return DiscordColor.orange;
+        return DiscordColor.fromRgb(255, 140, 0);
       case TypeOfMessage.error:
-        return DiscordColor.red;
+        return DiscordColor.fromRgb(255, 0, 0);
       default:
-        return DiscordColor.blue;
+        return DiscordColor.fromRgb(0, 0, 255);
     }
   }
 }

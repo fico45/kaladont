@@ -11,9 +11,7 @@ void main() async {
 
   await container.read(playersProvider.notifier).loadPlayers();
 
-  await PlatformPluginRepository.initBot();
-
-  PlatformPluginRepository.mainListener(
+  await PlatformPluginRepository.startAndListen(
     container: container,
   );
 
