@@ -2,7 +2,7 @@ import 'dart:math';
 
 import 'package:riverpod/riverpod.dart';
 
-import '../client.dart';
+import '../repository/client_repository.dart';
 import '../formatters.dart';
 import '../model/word_model.dart';
 

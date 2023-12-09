@@ -1,6 +1,6 @@
 # Official Dart image: https://hub.docker.com/_/dart
 # Specify the Dart SDK base image version using dart:<version> (ex: dart:2.12)
-FROM dart:3.0.2 AS build
+FROM dart:3.1.5 AS build
 
 # Resolve app dependencies.
 WORKDIR /kaladont

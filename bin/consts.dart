@@ -24,7 +24,5 @@ class Tokens {
     discordToken = bool.hasEnvironment('discordToken')
         ? const String.fromEnvironment('discordToken')
         : env['discordToken'] ?? '';
-
-    print('Env?\n$supabaseUrl\n$supabaseApiKey\n$discordToken');
   }
 }

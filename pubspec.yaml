@@ -8,13 +8,13 @@ environment:
 
 
 dev_dependencies:
-  lints: ^2.0.1
+  lints: ^3.0.0
   
 
 dependencies:
   dio: ^5.1.1
   dotenv: ^4.0.1
   supabase: ^1.6.3
-  nyxx: ^5.1.1
-  nyxx_commands: ^5.0.2
+  nyxx: ^6.0.2
+  nyxx_commands: ^6.0.0
   riverpod: ^2.3.2

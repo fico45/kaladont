@@ -1,8 +1,8 @@
 import 'package:riverpod/riverpod.dart';
 
-import '../client.dart';
 import '../model/player_model.dart';
 import '../providers/player_provider.dart';
+import '../repository/client_repository.dart';
 
 class PlayerService {
   static Future<bool> awardPoints({
