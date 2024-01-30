@@ -103,7 +103,7 @@ void kaladontMainActivity({
           message: "Čestitamo! Pobijedili ste!",
           event: event,
           providerContainer: providerContainer,
-          type: TypeOfMessage.warning,
+          type: TypeOfMessage.endGame,
         );
 
         PlatformPluginRepository.isProcessingWord = false;
