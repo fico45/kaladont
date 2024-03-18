@@ -19,11 +19,10 @@ class ServersProvider extends StateNotifier<List<DiscordServer>> {
 
   Future<void> loadServers() async {
     try {
-      final getServersResponse =
-          await SPC.client.from('discord_servers').select();
+      final getServersResponse = await SPC.client.from('servers').select();
       List<DiscordServer> newServers = [];
-      for (var element in getServersResponse) {
-        newServers.add(DiscordServer.fromJson(getServersResponse[0]));
+      for (var server in getServersResponse) {
+        newServers.add(DiscordServer.fromJson(server));
       }
 
       state = newServers;

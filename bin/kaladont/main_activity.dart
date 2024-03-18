@@ -42,7 +42,8 @@ void kaladontMainActivity({
       //check if the previous and currnet work even match
       bool canContinue = newWordFirstLetters == oldWordLastLetters;
       PlatformPluginRepository.isProcessingWord = true;
-      if (gameState.lastPlayerId == event.message.author.id.toString() &&
+      if (!Tokens.isDev &&
+          gameState.lastPlayerId == event.message.author.id.toString() &&
           canContinue) {
         await MessageController.sendMessage(
           message:
@@ -89,14 +90,16 @@ void kaladontMainActivity({
       if (wordProvider.state.victory) {
         gameState.isKaladontStarted = false;
         gameState.lastPlayerId = '';
-        await PlayerService.awardPoints(
-          playerDiscordId: event.message.author.id.value,
-          numberOfPoints: 3,
-          playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar:
-              event.message.author.avatar?.url.toString() ?? '',
-          providerContainer: providerContainer,
-        );
+        if (!Tokens.isDev) {
+          await PlayerService.awardPoints(
+            playerDiscordId: event.message.author.id.value,
+            numberOfPoints: 3,
+            playerDiscordUsername: event.message.author.username,
+            playerDiscordAvatar:
+                event.message.author.avatar?.url.toString() ?? '',
+            providerContainer: providerContainer,
+          );
+        }
         Globals.usedWords.clear();
 
         await MessageController.sendMessage(
@@ -113,14 +116,16 @@ void kaladontMainActivity({
             ? possibleAnswers = '1000+'
             : possibleAnswers = wordProvider.state.possibleAnswers.toString();
         gameState.lastPlayerId = event.message.author.id.toString();
-        await PlayerService.awardPoints(
-          playerDiscordId: event.message.author.id.value,
-          numberOfPoints: 1,
-          playerDiscordUsername: event.message.author.username,
-          playerDiscordAvatar:
-              event.message.author.avatar?.url.toString() ?? '',
-          providerContainer: providerContainer,
-        );
+        if (!Tokens.isDev) {
+          await PlayerService.awardPoints(
+            playerDiscordId: event.message.author.id.value,
+            numberOfPoints: 1,
+            playerDiscordUsername: event.message.author.username,
+            playerDiscordAvatar:
+                event.message.author.avatar?.url.toString() ?? '',
+            providerContainer: providerContainer,
+          );
+        }
         Globals.usedWords.add(wordProvider.state.currentWord);
 
         await MessageController.sendMessage(
