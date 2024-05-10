@@ -13,7 +13,7 @@ Future<Word> checkWord({
     return savedWord;
   } else {
     int possibleAnswers = await checkForWin(word: wordToCheck);
-    bool isWin = possibleAnswers == 0 ? true : false;
+    bool isWin = possibleAnswers == 0;
     return Word(
         currentWord: wordToCheck,
         lastGuess: true,
@@ -56,12 +56,19 @@ Future<int> checkForWin({required String word}) async {
       .like('word', '$lastTwoLetters%')
       .filter('type', 'in', Globals.supabaseFilter);
 
-  if (response.isEmpty) {
+  List allowedWords = [];
+  for (var i = 0; i < response.length; i++) {
+    if (!Globals.usedWords.contains(response[i]['word'])) {
+      allowedWords.add(response[i]['word']);
+    }
+  }
+
+  if (allowedWords.isEmpty) {
     print('Riječi koje počinju na $lastTwoLetters ne postoje u rječniku');
     return 0;
   } else {
     print(
-        'Riječi koje počinju na $lastTwoLetters postoje u rječniku. Njih je ${response.length}');
-    return response.length;
+        'Riječi koje počinju na $lastTwoLetters postoje u rječniku. Njih je ${allowedWords.length}');
+    return allowedWords.length;
   }
 }
