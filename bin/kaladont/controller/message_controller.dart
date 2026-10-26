@@ -1,5 +1,4 @@
 import 'package:nyxx/nyxx.dart';
-import 'package:riverpod/riverpod.dart';
 
 enum TypeOfMessage {
   correctGuess,
@@ -14,7 +13,6 @@ class MessageController {
   static Future<void> sendMessage({
     required String message,
     required MessageCreateEvent event,
-    required ProviderContainer providerContainer,
     required TypeOfMessage type,
   }) async {
     List<EmbedBuilder> embeds = [];
@@ -40,8 +38,6 @@ class MessageController {
         return "Ups!";
       case TypeOfMessage.error:
         return "Greška!";
-      default:
-        return "Nepoznata poruka";
     }
   }
 
@@ -59,8 +55,6 @@ class MessageController {
         return DiscordColor.fromRgb(255, 140, 0);
       case TypeOfMessage.error:
         return DiscordColor.fromRgb(255, 0, 0);
-      default:
-        return DiscordColor.fromRgb(0, 0, 255);
     }
   }
 }

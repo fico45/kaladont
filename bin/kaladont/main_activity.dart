@@ -3,153 +3,116 @@ import 'package:riverpod/riverpod.dart';
 
 import '../consts.dart';
 import 'controller/message_controller.dart';
+import 'model/game_key.dart';
+import 'model/word_model.dart';
 import 'providers/game_state_provider.dart';
-import 'providers/saved_word_provider.dart';
-import 'repository/platform_plugin_repository.dart';
 import 'services/check_word.dart';
 import 'services/player_service.dart';
 import 'services/word_check_formatter.dart';
 
-void kaladontMainActivity({
+final RegExp _croatianWord = RegExp(r'^[a-zčćđšž]+$', caseSensitive: false);
+
+Future<void> kaladontMainActivity({
   required MessageCreateEvent event,
+  required GameKey key,
   required ProviderContainer providerContainer,
 }) async {
-  print(event.message.content);
-  //check if the message contains any content
-  if (event.message.content != '') {
-    //check if it's a single word and not a sentence
-    if (!event.message.content.contains(" ")) {
-      final wordProvider = providerContainer.read(savedWordProvider.notifier);
-      final gameState =
-          providerContainer.read(gameStateProvider.notifier).state;
-      if (event.message.content.contains("%")) {
-        //sql injection prevention. Doesn't work though.
-        await MessageController.sendMessage(
-          message: 'Zločestica bezobrazna!',
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.error,
-        );
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      }
-      String inputWord = event.message.content.toLowerCase();
-      String newWordFirstLetters =
-          WordCheckFormatter.getFirstTwoLetters(word: inputWord);
-      String oldWordLastLetters = WordCheckFormatter.getLastTwoLetters(
-          word: wordProvider.state.currentWord,
-          length: wordProvider.state.currentWord.length - 1);
-      //check if the previous and currnet work even match
-      bool canContinue = newWordFirstLetters == oldWordLastLetters;
-      PlatformPluginRepository.isProcessingWord = true;
-      if (!Tokens.isDev &&
-          gameState.lastPlayerId == event.message.author.id.toString() &&
-          canContinue) {
-        await MessageController.sendMessage(
-          message:
-              "Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${wordProvider.state.currentWord}",
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.warning,
-        );
-
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      }
-      if (Globals.usedWords.contains(inputWord)) {
-        await MessageController.sendMessage(
-          message: "Riječ je već korištena!",
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.warning,
-        );
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      }
-      if (canContinue) {
-        wordProvider.state = await checkWord(
-          savedWord: wordProvider.state,
-          wordToCheck: inputWord,
-        );
-      } else {
-        wordProvider.state.setLastGuess(false);
-      }
-      if (!wordProvider.state.previousExistsInDictionary) {
-        await MessageController.sendMessage(
-          message: '''Riječ koju ste upisali ne postoji u rječniku!
-              Riječ treba početi sa ${WordCheckFormatter.getLastTwoLetters(word: wordProvider.state.currentWord.toLowerCase(), length: wordProvider.state.currentWord.length - 1)}''',
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.warning,
-        );
-
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      }
-      //final response
-      if (wordProvider.state.victory) {
-        gameState.isKaladontStarted = false;
-        gameState.lastPlayerId = '';
-        if (!Tokens.isDev) {
-          await PlayerService.awardPoints(
-            playerDiscordId: event.message.author.id.value,
-            numberOfPoints: 3,
-            playerDiscordUsername: event.message.author.username,
-            playerDiscordAvatar:
-                event.message.author.avatar?.url.toString() ?? '',
-            providerContainer: providerContainer,
-          );
-        }
-        Globals.usedWords.clear();
-
-        await MessageController.sendMessage(
-          message: "Čestitamo! Pobijedili ste!",
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.endGame,
-        );
-
-        PlatformPluginRepository.isProcessingWord = false;
-      } else if (wordProvider.state.lastGuess) {
-        String possibleAnswers;
-        wordProvider.state.possibleAnswers == 1000
-            ? possibleAnswers = '1000+'
-            : possibleAnswers = wordProvider.state.possibleAnswers.toString();
-        gameState.lastPlayerId = event.message.author.id.toString();
-        if (!Tokens.isDev) {
-          await PlayerService.awardPoints(
-            playerDiscordId: event.message.author.id.value,
-            numberOfPoints: 1,
-            playerDiscordUsername: event.message.author.username,
-            playerDiscordAvatar:
-                event.message.author.avatar?.url.toString() ?? '',
-            providerContainer: providerContainer,
-          );
-        }
-        Globals.usedWords.add(wordProvider.state.currentWord);
-
-        await MessageController.sendMessage(
-          message:
-              "Nova riječ: ${wordProvider.state.currentWord}\nMogućih odgovora: $possibleAnswers",
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.correctGuess,
-        );
-
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      } else {
-        await MessageController.sendMessage(
-          message:
-              "Niste dobro nastivili buhtlin niz. Pokušajte ponovno. Trenutna riječ: ${wordProvider.state.currentWord}",
-          event: event,
-          providerContainer: providerContainer,
-          type: TypeOfMessage.failedGuess,
-        );
-
-        PlatformPluginRepository.isProcessingWord = false;
-        return;
-      }
-    }
+  final inputWord = event.message.content.trim().toLowerCase();
+  if (inputWord.isEmpty || !_croatianWord.hasMatch(inputWord)) {
+    return;
   }
+
+  final sessions = providerContainer.read(gameSessionsProvider.notifier);
+  final session = sessions.sessionFor(key);
+  if (session == null) {
+    return;
+  }
+
+  final expectedLetters = WordCheckFormatter.getLastTwoLetters(
+    word: session.currentWord,
+    length: session.currentWord.length - 1,
+  );
+  final actualLetters = WordCheckFormatter.getFirstTwoLetters(word: inputWord);
+  if (actualLetters != expectedLetters) {
+    await MessageController.sendMessage(
+      message:
+          'Niste dobro nastavili niz. Trenutna riječ: ${session.currentWord}',
+      event: event,
+      type: TypeOfMessage.failedGuess,
+    );
+    return;
+  }
+
+  final playerId = event.message.author.id.value;
+  if (!Tokens.isDev && session.lastPlayerId == playerId) {
+    await MessageController.sendMessage(
+      message:
+          'Ne možete nastaviti vlastiti niz.\nTrenutna riječ: ${session.currentWord}',
+      event: event,
+      type: TypeOfMessage.warning,
+    );
+    return;
+  }
+
+  if (session.usedWords.contains(inputWord)) {
+    await MessageController.sendMessage(
+      message: 'Riječ je već korištena!',
+      event: event,
+      type: TypeOfMessage.warning,
+    );
+    return;
+  }
+
+  final result = await checkWord(
+    savedWord: Word(
+      currentWord: session.currentWord,
+      previousWord: session.previousWord ?? '',
+      lastGuess: true,
+      victory: false,
+      previousExistsInDictionary: true,
+      possibleAnswers: 0,
+    ),
+    wordToCheck: inputWord,
+    usedWords: session.usedWords,
+  );
+
+  if (!result.previousExistsInDictionary) {
+    await MessageController.sendMessage(
+      message:
+          'Riječ ne postoji u rječniku! Riječ treba početi sa $expectedLetters.',
+      event: event,
+      type: TypeOfMessage.warning,
+    );
+    return;
+  }
+
+  if (!Tokens.isDev) {
+    await PlayerService.awardPoints(
+      guildId: key.guildId,
+      playerDiscordId: playerId,
+      numberOfPoints: result.victory ? 3 : 1,
+      playerDiscordUsername: event.message.author.username,
+      playerDiscordAvatar: event.message.author.avatar?.url.toString() ?? '',
+    );
+  }
+
+  if (result.victory) {
+    sessions.end(key);
+    await MessageController.sendMessage(
+      message: 'Čestitamo! Pobijedili ste!',
+      event: event,
+      type: TypeOfMessage.endGame,
+    );
+    return;
+  }
+
+  sessions.update(session.acceptWord(word: inputWord, playerId: playerId));
+  final possibleAnswers = result.possibleAnswers >= 1000
+      ? '1000+'
+      : result.possibleAnswers.toString();
+  await MessageController.sendMessage(
+    message: 'Nova riječ: $inputWord\nMogućih odgovora: $possibleAnswers',
+    event: event,
+    type: TypeOfMessage.correctGuess,
+  );
 }

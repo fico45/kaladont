@@ -1,20 +1,15 @@
-import 'package:riverpod/riverpod.dart';
+import 'package:nyxx/nyxx.dart';
 
 import '../repository/client_repository.dart';
 
 class ServerService {
-  static Future<bool> insertDiscordServerId({
-    required int serverId,
-    required ProviderContainer providerContainer,
-  }) async {
-    try {
-      final insertResponse = await SPC.client.from('discord_servers').insert({
-        'server_id': serverId,
-      });
-      return true;
-    } catch (e) {
-      print(e);
-      return false;
-    }
+  static Future<void> upsertGuild(Guild guild) async {
+    await SPC.client.from('discord_guilds').upsert({
+      'guild_id': guild.id.value,
+      'name': guild.name,
+      'icon_url': guild.icon?.url.toString(),
+      'enabled': true,
+      'updated_at': DateTime.now().toUtc().toIso8601String(),
+    });
   }
 }

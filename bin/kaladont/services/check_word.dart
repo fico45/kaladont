@@ -6,13 +6,17 @@ import 'word_check_formatter.dart';
 Future<Word> checkWord({
   required Word savedWord,
   required String wordToCheck,
+  required Set<String> usedWords,
 }) async {
   bool isValid = await validateWord(wordToCheck: wordToCheck);
   if (!isValid) {
     savedWord.setPreviousExistsInDictionary(false);
     return savedWord;
   } else {
-    int possibleAnswers = await checkForWin(word: wordToCheck);
+    int possibleAnswers = await checkForWin(
+      word: wordToCheck,
+      usedWords: {...usedWords, wordToCheck},
+    );
     bool isWin = possibleAnswers == 0;
     return Word(
         currentWord: wordToCheck,
@@ -47,7 +51,10 @@ Future<bool> validateWord({required String wordToCheck}) async {
   }
 }
 
-Future<int> checkForWin({required String word}) async {
+Future<int> checkForWin({
+  required String word,
+  required Set<String> usedWords,
+}) async {
   String lastTwoLetters =
       WordCheckFormatter.getLastTwoLetters(word: word, length: word.length - 1);
   List response = await SPC.client
@@ -58,7 +65,7 @@ Future<int> checkForWin({required String word}) async {
 
   List allowedWords = [];
   for (var i = 0; i < response.length; i++) {
-    if (!Globals.usedWords.contains(response[i]['word'])) {
+    if (!usedWords.contains(response[i]['word'])) {
       allowedWords.add(response[i]['word']);
     }
   }
