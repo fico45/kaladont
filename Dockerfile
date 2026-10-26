@@ -21,15 +21,6 @@ FROM debian:bullseye
 COPY --from=build /runtime/ /
 COPY --from=build /kaladont/bin/server /app/bin/
 
-ARG supabaseApiKey
-ARG discordToken
-ARG supabaseUrl
-# Generate the .env file
-RUN echo "supaBaseUrl='${supabaseUrl}'"  > /app/bin/.env
-RUN echo "supaBaseAPIKey='${supabaseApiKey}'" >> /app/bin/.env
-RUN echo "discordToken='${discordToken}'" >> /app/bin/.env
-
 # Start server.
-EXPOSE 8080
 WORKDIR /app/bin
 CMD ["./server"]

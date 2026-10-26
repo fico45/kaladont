@@ -1,8 +1,9 @@
+import 'dart:io';
+
 import 'package:dotenv/dotenv.dart';
 
 class Globals {
   static const String supabaseFilter = '("imenica","glagol","pridjev")';
-  static List<String> usedWords = [];
   static const chars =
       'AaBbCcĆćČčDdĐđEeFfGgHhIiJjKkLlMmNnOoPpQqRrSsŠšTtUuVvZzŽž';
 }
@@ -14,7 +15,10 @@ class Tokens {
   static bool isDev = false;
 
   static void loadTokens() {
-    var env = DotEnv(includePlatformEnvironment: true)..load();
+    final env = DotEnv(includePlatformEnvironment: true);
+    if (File('.env').existsSync()) {
+      env.load();
+    }
     supabaseUrl = bool.hasEnvironment('supaBaseUrl')
         ? const String.fromEnvironment('supaBaseUrl')
         : env['supaBaseUrl'] ?? '';

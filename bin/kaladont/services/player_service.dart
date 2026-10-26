@@ -1,48 +1,31 @@
-import 'package:riverpod/riverpod.dart';
-
 import '../model/player_model.dart';
-import '../providers/player_provider.dart';
 import '../repository/client_repository.dart';
 
 class PlayerService {
-  static Future<bool> awardPoints({
+  static Future<void> awardPoints({
+    required int guildId,
     required int playerDiscordId,
     required int numberOfPoints,
     required String playerDiscordUsername,
     required String playerDiscordAvatar,
-    required ProviderContainer providerContainer,
   }) async {
-    try {
-      final discordPlayerInDb = providerContainer
-          .read(playersProvider)
-          .firstWhere((element) => element.id == playerDiscordId,
-              orElse: () =>
-                  Player(id: 0, username: '', score: 0, playerAvatar: ''));
-      if (discordPlayerInDb.id == 0) {
-        final insertResponse = await SPC.client.from('players').insert({
-          'discord_id': playerDiscordId,
-          'score': numberOfPoints,
-          'player_username': playerDiscordUsername,
-          'player_avatar': playerDiscordAvatar,
-        });
-        providerContainer.read(playersProvider.notifier).addPlayer(Player(
-            id: playerDiscordId,
-            username: playerDiscordUsername,
-            score: numberOfPoints,
-            playerAvatar: playerDiscordAvatar));
-      } else {
-        final updateResponse = await SPC.client
-            .from('players')
-            .update({'score': numberOfPoints + discordPlayerInDb.score}).eq(
-                'discord_id', playerDiscordId);
-      }
-      discordPlayerInDb.score += numberOfPoints;
+    await SPC.client.rpc('award_kaladont_points', params: {
+      'p_guild_id': guildId,
+      'p_discord_user_id': playerDiscordId,
+      'p_points': numberOfPoints,
+      'p_username': playerDiscordUsername,
+      'p_avatar_url': playerDiscordAvatar,
+    });
+  }
 
-      return true;
-    } catch (e) {
-      print(e);
+  static Future<List<Player>> getGuildRanking(int guildId) async {
+    final response = await SPC.client
+        .from('guild_player_rankings')
+        .select()
+        .eq('guild_id', guildId)
+        .order('score', ascending: false)
+        .limit(25);
 
-      return false;
-    }
+    return response.map<Player>((json) => Player.fromJson(json)).toList();
   }
 }
