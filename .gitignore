@@ -6,4 +6,10 @@
 build/
 .env*
 docker.dart
-.vscode/
+.vscode/*
+!.vscode/settings.json
+
+# Generated command metadata and coverage.
+coverage/
+*.exe
+/out.g.dart
