@@ -64,10 +64,41 @@ final class DiscordBot {
       ),
     );
     _client = client;
-    _ready = client.onReady.listen((_) => logEvent('info', 'Discord ready'));
+    _ready = client.onReady.listen((event) {
+      logEvent(
+        'info',
+        'Discord ready',
+        context: {
+          'bot_id': event.user.id.toString(),
+          'guild_ids': event.guilds
+              .map((guild) => guild.id.toString())
+              .toList(),
+        },
+      );
+    });
     _messages = client.onMessageCreate.listen(
       (event) {
         final author = event.message.author;
+        final context = _messageContext(event);
+        final reason = _closing
+            ? 'shuttingDown'
+            : event.guildId == null
+            ? 'directMessage'
+            : event.message.webhookId != null
+            ? 'webhook'
+            : author is! User || author.isBot
+            ? 'bot'
+            : null;
+        logEvent(
+          'info',
+          'Discord message received',
+          context: {
+            ...context,
+            'content_length': event.message.content.length,
+            'disposition': reason == null ? 'processing' : 'ignored',
+            if (reason != null) 'reason': reason,
+          },
+        );
         if (_closing ||
             !shouldProcessMessage(
               guildId: event.guildId?.value,
@@ -101,6 +132,13 @@ final class DiscordBot {
       guildId: guild.id.value,
       channelId: context.channel.id.value,
     );
+    final contextFields = <String, Object?>{
+      'guild_id': guild.id.toString(),
+      'guild_name': guild.name,
+      'channel_id': context.channel.id.toString(),
+      'command': startGame ? 'kaladont-start' : 'kaladont-ranks',
+    };
+    logEvent('info', 'Discord command received', context: contextFields);
     await queue.run(key, () async {
       try {
         await games.upsertGuild(
@@ -133,6 +171,7 @@ final class DiscordBot {
         logEvent(
           'error',
           'Command failed (${error.runtimeType})',
+          context: contextFields,
           stackTrace: stack,
         );
         await context.respond(
@@ -151,6 +190,7 @@ final class DiscordBot {
       guildId: event.guildId!.value,
       channelId: event.message.channel.id.value,
     );
+    final context = _messageContext(event);
     try {
       await queue.run(key, () async {
         try {
@@ -162,6 +202,11 @@ final class DiscordBot {
               username: event.message.author.username,
               avatarUrl: event.message.author.avatar?.url.toString() ?? '',
               word: event.message.content,
+            ),
+            onIgnored: (reason) => logEvent(
+              reason == GuessIgnoreReason.emptyContent ? 'warning' : 'info',
+              'Discord message ignored',
+              context: {...context, 'reason': reason.name},
             ),
           );
           if (reply == null) return;
@@ -176,10 +221,16 @@ final class DiscordBot {
           await event.message.channel.sendMessage(
             MessageBuilder(embeds: [embed]),
           );
+          logEvent(
+            'info',
+            'Discord reply sent',
+            context: {...context, 'reply_type': reply.type.name},
+          );
         } catch (error, stack) {
           logEvent(
             'error',
             'Guess processing failed (${error.runtimeType})',
+            context: context,
             stackTrace: stack,
           );
           await event.message.channel.sendMessage(
@@ -191,10 +242,19 @@ final class DiscordBot {
       logEvent(
         'error',
         'Discord response failed (${error.runtimeType})',
+        context: context,
         stackTrace: stack,
       );
     }
   }
+
+  Map<String, Object?> _messageContext(MessageCreateEvent event) => {
+    'guild_id': event.guildId?.toString(),
+    'guild_name': _client?.guilds.cache[event.guildId]?.name,
+    'channel_id': event.message.channel.id.toString(),
+    'message_id': event.message.id.toString(),
+    'author_id': event.message.author.id.toString(),
+  };
 
   Future<void> close() async {
     if (_closing) return;

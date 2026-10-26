@@ -57,6 +57,32 @@ Initial words are nouns or verbs. Guesses and continuations may be nouns, verbs
 or adjectives. Dictionary membership does not enforce additional grammatical
 form rules. Non-word messages, bots, webhooks and DMs are ignored.
 
+## Message diagnostics
+
+Incoming Gateway messages are logged as JSON to stderr, visible in the VS Code
+Debug Console. Each entry includes `process_id`, server `guild_id` and cached
+`guild_name` (null when unavailable), `channel_id`, `message_id`, `author_id`,
+`content_length`, and whether it will be processed or ignored. Message text is
+not logged. Commands, reply delivery and processing failures include server and
+channel context too.
+
+After restarting the bot, run `/kaladont-start` in the channel on the new server
+and send a word. Look for `Discord message received` and then:
+
+- `noActiveGame`: start a game in that exact server/channel; threads have separate IDs.
+- `emptyContent`: Discord supplied no text (also possible for attachment-only messages).
+  Check Message Content Intent in the Developer Portal for text messages.
+- `invalidWord`: the input is not one word with at least two Croatian letters.
+- `duplicateMessage`: that message ID already has a committed turn.
+- `Discord reply sent`: Discord accepted the reply.
+- A processing/response error: inspect its server/channel IDs and exception type.
+
+If there is no incoming entry at all, check channel visibility and that you are
+watching the correct process. For reply failures, check Send Messages and Embed
+Links permissions (and Send Messages in Threads when applicable). One bot process
+handles all invited servers; two servers do not require two processes using the
+same token. The process ID helps distinguish logs when multiple workers run.
+
 ## Verification and builds
 
 ```sh

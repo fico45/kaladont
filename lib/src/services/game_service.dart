@@ -3,6 +3,13 @@ import '../repository/dictionary_repository.dart';
 import '../repository/game_repository.dart';
 import 'word_rules.dart';
 
+enum GuessIgnoreReason {
+  emptyContent,
+  invalidWord,
+  noActiveGame,
+  duplicateMessage,
+}
+
 enum ReplyType { correct, warning, victory }
 
 final class GameReply {
@@ -36,12 +43,25 @@ final class GameService {
         : 'U ovom kanalu već je pokrenuta igra.';
   }
 
-  Future<GameReply?> guess(Guess guess) async {
+  Future<GameReply?> guess(
+    Guess guess, {
+    void Function(GuessIgnoreReason reason)? onIgnored,
+  }) async {
     final word = normalizeWord(guess.word);
     // Ignore ordinary chat, punctuation and short/invalid words without slicing them.
-    if (!isPlayableWord(word)) return null;
+    if (!isPlayableWord(word)) {
+      onIgnored?.call(
+        word.isEmpty
+            ? GuessIgnoreReason.emptyContent
+            : GuessIgnoreReason.invalidWord,
+      );
+      return null;
+    }
     final session = await games.session(guess.key);
-    if (session == null) return null;
+    if (session == null) {
+      onIgnored?.call(GuessIgnoreReason.noActiveGame);
+      return null;
+    }
     final expected = lastTwoLetters(session.currentWord);
     if (firstTwoLetters(word) != expected) {
       return GameReply(
@@ -78,7 +98,10 @@ final class GameService {
       victory: answers == 0,
       isDev: isDev,
     );
-    if (result == CommitResult.duplicate) return null;
+    if (result == CommitResult.duplicate) {
+      onIgnored?.call(GuessIgnoreReason.duplicateMessage);
+      return null;
+    }
     if (result == CommitResult.conflict) {
       return const GameReply(
         'Igra je u međuvremenu promijenjena. Pokušajte ponovno.',

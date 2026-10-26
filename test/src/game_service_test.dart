@@ -161,6 +161,52 @@ void main() {
     );
     expect(games.commits, 0);
   });
+  test('empty content reports a distinct diagnostic reason', () async {
+    final ignored = <GuessIgnoreReason>[];
+    final reply = await service.guess(
+      const Guess(
+        key: key,
+        messageId: 3,
+        playerId: 2,
+        username: 'Player',
+        word: '  ',
+      ),
+      onIgnored: ignored.add,
+    );
+    expect(reply, isNull);
+    expect(ignored, [GuessIgnoreReason.emptyContent]);
+    expect(games.commits, 0);
+  });
+  test('invalid word reports why the message is ignored', () async {
+    final ignored = <GuessIgnoreReason>[];
+    await service.guess(
+      const Guess(
+        key: key,
+        messageId: 3,
+        playerId: 2,
+        username: 'Player',
+        word: 'hello world',
+      ),
+      onIgnored: ignored.add,
+    );
+    expect(ignored, [GuessIgnoreReason.invalidWord]);
+    expect(games.commits, 0);
+  });
+  test('missing channel session reports no active game', () async {
+    games.current = null;
+    final ignored = <GuessIgnoreReason>[];
+    expect(await service.guess(guess, onIgnored: ignored.add), isNull);
+    expect(ignored, [GuessIgnoreReason.noActiveGame]);
+    expect(games.commits, 0);
+  });
+  test('successful guess does not report an ignored message', () async {
+    final ignored = <GuessIgnoreReason>[];
+    expect(
+      (await service.guess(guess, onIgnored: ignored.add))!.type,
+      ReplyType.correct,
+    );
+    expect(ignored, isEmpty);
+  });
   test('two-letter word can be evaluated safely', () async {
     expect(
       (await service.guess(
@@ -179,7 +225,9 @@ void main() {
     'duplicate committed message produces no second success response',
     () async {
       games.result = CommitResult.duplicate;
-      expect(await service.guess(guess), isNull);
+      final ignored = <GuessIgnoreReason>[];
+      expect(await service.guess(guess, onIgnored: ignored.add), isNull);
+      expect(ignored, [GuessIgnoreReason.duplicateMessage]);
     },
   );
   test('stale session produces retry response', () async {
