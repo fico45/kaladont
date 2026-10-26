@@ -1,16 +1,67 @@
-import 'package:riverpod/riverpod.dart';
-import 'consts.dart';
-import 'kaladont/command_list.dart';
-import 'kaladont/repository/platform_plugin_repository.dart';
+import 'dart:async';
+import 'dart:io';
 
-void main() async {
-  final container = ProviderContainer();
-  ChatCommands(provider: container);
-  Tokens.loadTokens();
+import 'package:discord_bot/src/config.dart';
+import 'package:discord_bot/src/discord_bot.dart';
+import 'package:discord_bot/src/logging.dart';
+import 'package:discord_bot/src/repository/dictionary_repository.dart';
+import 'package:discord_bot/src/repository/game_repository.dart';
+import 'package:discord_bot/src/services/channel_queue.dart';
+import 'package:discord_bot/src/services/game_service.dart';
+import 'package:supabase/supabase.dart';
 
-  await PlatformPluginRepository.startAndListen(
-    container: container,
-  );
+Future<void> main() async {
+  SupabaseClient? database;
+  DiscordBot? bot;
+  final signals = <StreamSubscription<ProcessSignal>>[];
+  try {
+    final config = AppConfig.fromEnvironment();
+    final client = SupabaseClient(
+      config.supabaseUrl,
+      config.supabaseApiKey,
+      authOptions: const AuthClientOptions(autoRefreshToken: false),
+    );
+    database = client;
+    final games = SupabaseGameRepository(client);
+    bot = DiscordBot(
+      config: config,
+      games: games,
+      queue: ChannelQueue(),
+      game: GameService(
+        dictionary: SupabaseDictionaryRepository(client),
+        games: games,
+        isDev: config.isDev,
+      ),
+    );
+    final stopped = Completer<void>();
+    void stop(ProcessSignal _) {
+      if (!stopped.isCompleted) stopped.complete();
+    }
 
-  //sortAndSendToDb(pbClient: client);
+    signals.add(ProcessSignal.sigint.watch().listen(stop));
+    if (!Platform.isWindows) {
+      signals.add(ProcessSignal.sigterm.watch().listen(stop));
+    }
+    await bot.start();
+    await stopped.future;
+  } catch (error, stack) {
+    // Exception messages from network libraries can contain credentials/URLs.
+    logEvent('error', 'Bot stopped (${error.runtimeType})', stackTrace: stack);
+    if (database == null && error is FormatException) {
+      logEvent('error', error.message);
+    }
+    exitCode = 1;
+  } finally {
+    try {
+      await bot?.close();
+    } finally {
+      try {
+        await database?.dispose();
+      } finally {
+        for (final signal in signals) {
+          await signal.cancel();
+        }
+      }
+    }
+  }
 }

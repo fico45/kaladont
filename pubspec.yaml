@@ -1,21 +1,16 @@
-name: disocord_bot
-description: A simple command-line application.
+name: discord_bot
+description: A Discord server bot for the Croatian word game Kaladont.
+publish_to: none
 version: 1.0.0
-# homepage: https://www.example.com
 
 environment:
-  sdk: '>=3.1.0 <4.0.0'
+  sdk: '>=3.13.0 <4.0.0'
 
+dependencies:
+  nyxx: ^6.0.2
+  nyxx_commands: ^6.0.0
+  supabase: ^2.16.5
 
 dev_dependencies:
   lints: ^3.0.0
   test: ^1.24.0
-  
-
-dependencies:
-  dio: ^5.1.1
-  dotenv: ^4.0.1
-  supabase: ^1.6.3
-  nyxx: ^6.0.2
-  nyxx_commands: ^6.0.0
-  riverpod: ^2.3.2

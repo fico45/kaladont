@@ -1,5 +1,19 @@
 workflows:
-  hello-world:
-    name: Hello world workflow
+  dart-server:
+    name: Dart server checks
     scripts:
-        - echo "Hello World!"
+      - name: Install pinned Dart SDK
+        script: |
+          curl -fsSL https://mise.run | sh
+          "$HOME/.local/bin/mise" trust
+          "$HOME/.local/bin/mise" install
+      - name: Verify server
+        script: |
+          export PATH="$HOME/.local/bin:$PATH"
+          mise exec -- dart pub get --enforce-lockfile
+          mise exec -- dart format --output=none --set-exit-if-changed bin lib test
+          mise exec -- dart analyze --fatal-infos
+          mise exec -- dart test
+          mkdir -p build
+          mise exec -- dart run nyxx_commands:compile --no-compile --no-format -o build/main.g.dart bin/main.dart
+          mise exec -- dart compile exe build/main.g.dart -o build/server
