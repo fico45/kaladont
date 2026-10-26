@@ -103,8 +103,15 @@ default, creates an isolated test database, and drops it afterward. Set
 rollback, replay protection, concurrent commits, tenant isolation and dictionary
 counts beyond the API row limit. It does not use the development database's data.
 
-GitHub Actions runs formatting, strict analysis, Dart tests, database regressions,
-AOT compilation and a Docker build. Codemagic runs the Dart checks and AOT build.
+`Jenkinsfile` defines formatting, strict analysis, Dart tests, isolated PostgreSQL
+regressions, AOT compilation and a Docker build. See [Jenkins setup](jenkins.md)
+for running it on a local Jenkins agent with OrbStack. Codemagic runs formatting,
+strict analysis, Dart tests and AOT compilation; it does not run database regressions.
+
+The committed GitHub Actions Dart workflow only runs `dart pub get`; its format
+step is commented out. The separate GitHub deployment workflow builds/pushes an
+image and deploys to DigitalOcean on pushes to `master` or manual dispatch. Neither
+GitHub workflow runs the verification checks above. They remain unchanged.
 
 The runtime image runs as UID/GID 65532 with only the executable and Dart runtime
 libraries. Pass secrets at runtime, for example using your deployment's secret
