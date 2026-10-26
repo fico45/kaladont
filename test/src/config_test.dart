@@ -26,22 +26,40 @@ void main() {
     expect(config.isDev, isTrue);
     expect(config.supabaseUrl, 'http://localhost:54331');
   });
-  test('ignores DMs, bots and webhooks', () {
+  test('filters DMs, bots, webhooks, disabled channels and shutdown', () {
     expect(
-      shouldProcessMessage(guildId: null, isBot: false, webhookId: null),
-      isFalse,
+      messageIgnoreReason(guildId: null, isBot: false, webhookId: null),
+      isNotNull,
     );
     expect(
-      shouldProcessMessage(guildId: 1, isBot: true, webhookId: null),
-      isFalse,
+      messageIgnoreReason(guildId: 1, isBot: true, webhookId: null),
+      isNotNull,
     );
     expect(
-      shouldProcessMessage(guildId: 1, isBot: false, webhookId: 2),
-      isFalse,
+      messageIgnoreReason(guildId: 1, isBot: false, webhookId: 2),
+      isNotNull,
     );
     expect(
-      shouldProcessMessage(guildId: 1, isBot: false, webhookId: null),
-      isTrue,
+      messageIgnoreReason(guildId: 1, isBot: false, webhookId: null),
+      isNull,
+    );
+    expect(
+      messageIgnoreReason(
+        guildId: 1,
+        isBot: false,
+        webhookId: null,
+        channelEnabled: false,
+      ),
+      'disabledChannel',
+    );
+    expect(
+      messageIgnoreReason(
+        guildId: 1,
+        isBot: false,
+        webhookId: null,
+        closing: true,
+      ),
+      'shuttingDown',
     );
   });
 }

@@ -10,12 +10,20 @@ import 'repository/dictionary_repository.dart';
 import 'repository/game_repository.dart';
 import 'services/channel_queue.dart';
 import 'services/game_service.dart';
+import 'services/game_channels.dart';
+import 'services/receipt_retention.dart';
 
 final class DiscordBot {
   final AppConfig config;
   final GameService game;
   final GameRepository games;
   final ChannelQueue queue;
+  final GameChannels channels;
+  Timer? _channelRefresh;
+  Timer? _receiptCleanup;
+  Future<void>? _channelRefreshWork;
+  Future<void>? _receiptCleanupWork;
+  final ReceiptRetention retention;
   NyxxGateway? _client;
   StreamSubscription<MessageCreateEvent>? _messages;
   StreamSubscription<ReadyEvent>? _ready;
@@ -26,9 +34,22 @@ final class DiscordBot {
     required this.game,
     required this.games,
     required this.queue,
+    required this.channels,
+    required this.retention,
   });
 
   Future<void> start() async {
+    await channels.refresh();
+    _channelRefresh = Timer.periodic(const Duration(minutes: 5), (_) {
+      _channelRefreshWork = _refreshChannels();
+      unawaited(_channelRefreshWork);
+    });
+    _receiptCleanupWork = _pruneReceipts();
+    unawaited(_receiptCleanupWork);
+    _receiptCleanup = Timer.periodic(const Duration(hours: 1), (_) {
+      _receiptCleanupWork = _pruneReceipts();
+      unawaited(_receiptCleanupWork);
+    });
     final commands =
         CommandsPlugin(
             prefix: mentionOr((_) => '!'),
@@ -55,6 +76,15 @@ final class DiscordBot {
               }),
             ),
           );
+    commands.addCommand(
+      ChatCommand(
+        'kaladont-disable',
+        'Onemogući Kaladont u ovom kanalu',
+        id('kaladont-disable', (ChatContext context) async {
+          await _command(context, startGame: false, disableChannel: true);
+        }),
+      ),
+    );
     final client = await Nyxx.connectGateway(
       config.discordToken,
       GatewayIntents.messageContent | GatewayIntents.allUnprivileged,
@@ -80,15 +110,20 @@ final class DiscordBot {
       (event) {
         final author = event.message.author;
         final context = _messageContext(event);
-        final reason = _closing
-            ? 'shuttingDown'
-            : event.guildId == null
-            ? 'directMessage'
-            : event.message.webhookId != null
-            ? 'webhook'
-            : author is! User || author.isBot
-            ? 'bot'
-            : null;
+        final reason = messageIgnoreReason(
+          guildId: event.guildId?.value,
+          isBot: author is! User || author.isBot,
+          webhookId: event.message.webhookId?.value,
+          closing: _closing,
+          channelEnabled:
+              event.guildId != null &&
+              channels.contains(
+                GameKey(
+                  guildId: event.guildId!.value,
+                  channelId: event.message.channel.id.value,
+                ),
+              ),
+        );
         logEvent(
           'info',
           'Discord message received',
@@ -99,14 +134,7 @@ final class DiscordBot {
             if (reason != null) 'reason': reason,
           },
         );
-        if (_closing ||
-            !shouldProcessMessage(
-              guildId: event.guildId?.value,
-              isBot: author is! User || author.isBot,
-              webhookId: event.message.webhookId?.value,
-            )) {
-          return;
-        }
+        if (reason != null) return;
         unawaited(_message(event));
       },
       onError: (Object error, StackTrace stack) {
@@ -119,7 +147,11 @@ final class DiscordBot {
     );
   }
 
-  Future<void> _command(ChatContext context, {required bool startGame}) async {
+  Future<void> _command(
+    ChatContext context, {
+    required bool startGame,
+    bool disableChannel = false,
+  }) async {
     if (_closing) return;
     final guild = context.guild;
     if (guild == null) {
@@ -136,7 +168,11 @@ final class DiscordBot {
       'guild_id': guild.id.toString(),
       'guild_name': guild.name,
       'channel_id': context.channel.id.toString(),
-      'command': startGame ? 'kaladont-start' : 'kaladont-ranks',
+      'command': disableChannel
+          ? 'kaladont-disable'
+          : startGame
+          ? 'kaladont-start'
+          : 'kaladont-ranks',
     };
     logEvent('info', 'Discord command received', context: contextFields);
     await queue.run(key, () async {
@@ -146,7 +182,13 @@ final class DiscordBot {
           name: guild.name,
           iconUrl: guild.icon?.url.toString(),
         );
-        if (startGame) {
+        if (disableChannel) {
+          await channels.setEnabled(key, false);
+          await context.respond(
+            MessageBuilder(content: 'Kaladont je onemogućen u ovom kanalu.'),
+          );
+        } else if (startGame) {
+          await channels.setEnabled(key, true);
           await context.respond(MessageBuilder(content: await game.start(key)));
         } else {
           final players = await games.ranking(key.guildId);
@@ -193,6 +235,7 @@ final class DiscordBot {
     final context = _messageContext(event);
     try {
       await queue.run(key, () async {
+        if (!channels.contains(key)) return;
         try {
           final reply = await game.guess(
             Guess(
@@ -256,13 +299,48 @@ final class DiscordBot {
     'author_id': event.message.author.id.toString(),
   };
 
+  Future<void> _pruneReceipts() async {
+    try {
+      final removed = await retention.run();
+      if (removed > 0) {
+        logEvent(
+          'info',
+          'Expired turn receipts removed',
+          context: {'count': removed},
+        );
+      }
+    } catch (error, stack) {
+      logEvent(
+        'error',
+        'Receipt cleanup failed (${error.runtimeType})',
+        stackTrace: stack,
+      );
+    }
+  }
+
+  Future<void> _refreshChannels() async {
+    try {
+      await channels.refresh();
+    } catch (error, stack) {
+      logEvent(
+        'error',
+        'Channel refresh failed (${error.runtimeType})',
+        stackTrace: stack,
+      );
+    }
+  }
+
   Future<void> close() async {
     if (_closing) return;
     _closing = true;
+    _channelRefresh?.cancel();
+    _receiptCleanup?.cancel();
     try {
       await _messages?.cancel();
       await _ready?.cancel();
       await queue.drain();
+      await _channelRefreshWork;
+      await _receiptCleanupWork;
     } finally {
       await _client?.close();
     }
@@ -272,8 +350,17 @@ final class DiscordBot {
 const _retryMessage =
     'Usluga trenutačno nije dostupna. Pokušajte ponovno. Ako je potez već spremljen, provjerite trenutačni niz.';
 
-bool shouldProcessMessage({
+String? messageIgnoreReason({
   required int? guildId,
   required bool isBot,
   required int? webhookId,
-}) => guildId != null && !isBot && webhookId == null;
+  bool closing = false,
+  bool channelEnabled = true,
+}) {
+  if (closing) return 'shuttingDown';
+  if (guildId == null) return 'directMessage';
+  if (webhookId != null) return 'webhook';
+  if (isBot) return 'bot';
+  if (!channelEnabled) return 'disabledChannel';
+  return null;
+}

@@ -8,6 +8,8 @@ enum GuessIgnoreReason {
   invalidWord,
   noActiveGame,
   duplicateMessage,
+  disabledChannel,
+  staleMessage,
 }
 
 enum ReplyType { correct, warning, victory }
@@ -29,9 +31,9 @@ final class GameService {
   });
 
   Future<String> start(GameKey key) async {
-    final existing = await games.session(key);
+    final existing = await games.currentWord(key);
     if (existing != null) {
-      return 'U ovom kanalu već je pokrenuta igra. Trenutna riječ: ${existing.currentWord}';
+      return 'U ovom kanalu već je pokrenuta igra. Trenutna riječ: $existing';
     }
     final word = await dictionary.randomWord();
     if (!isPlayableWord(word)) {
@@ -57,36 +59,7 @@ final class GameService {
       );
       return null;
     }
-    final session = await games.session(guess.key);
-    if (session == null) {
-      onIgnored?.call(GuessIgnoreReason.noActiveGame);
-      return null;
-    }
-    final expected = lastTwoLetters(session.currentWord);
-    if (firstTwoLetters(word) != expected) {
-      return GameReply(
-        'Niste dobro nastavili niz. Trenutna riječ: ${session.currentWord}',
-      );
-    }
-    if (!isDev && session.lastPlayerId == guess.playerId) {
-      return GameReply(
-        'Ne možete nastaviti vlastiti niz. Trenutna riječ: ${session.currentWord}',
-      );
-    }
-    if (session.usedWords.contains(word)) {
-      return const GameReply('Riječ je već korištena!');
-    }
-    if (!await dictionary.contains(word)) {
-      return GameReply(
-        'Riječ ne postoji u rječniku! Riječ treba početi sa $expected.',
-      );
-    }
-    final answers = await dictionary.countContinuations(lastTwoLetters(word), {
-      ...session.usedWords,
-      word,
-    });
-    final result = await games.commit(
-      session,
+    final result = await games.guess(
       Guess(
         key: guess.key,
         messageId: guess.messageId,
@@ -95,24 +68,47 @@ final class GameService {
         avatarUrl: guess.avatarUrl,
         word: word,
       ),
-      victory: answers == 0,
       isDev: isDev,
     );
-    if (result == CommitResult.duplicate) {
-      onIgnored?.call(GuessIgnoreReason.duplicateMessage);
-      return null;
+    switch (result.status) {
+      case TurnStatus.staleMessage:
+        onIgnored?.call(GuessIgnoreReason.staleMessage);
+        return null;
+      case TurnStatus.channelDisabled:
+        onIgnored?.call(GuessIgnoreReason.disabledChannel);
+        return null;
+      case TurnStatus.noActiveGame:
+        onIgnored?.call(GuessIgnoreReason.noActiveGame);
+        return null;
+      case TurnStatus.duplicate:
+        onIgnored?.call(GuessIgnoreReason.duplicateMessage);
+        return null;
+      case TurnStatus.invalidWord:
+        onIgnored?.call(GuessIgnoreReason.invalidWord);
+        return null;
+      case TurnStatus.wrongPrefix:
+        return GameReply(
+          'Niste dobro nastavili niz. Trenutna riječ: ${result.word!}',
+        );
+      case TurnStatus.samePlayer:
+        return GameReply(
+          'Ne možete nastaviti vlastiti niz. Trenutna riječ: ${result.word!}',
+        );
+      case TurnStatus.reusedWord:
+        return const GameReply('Riječ je već korištena!');
+      case TurnStatus.unknownWord:
+        return GameReply(
+          'Riječ ne postoji u rječniku! Riječ treba početi sa ${result.expected!}.',
+        );
+      case TurnStatus.disabled:
+        return const GameReply('Kaladont je onemogućen na ovom serveru.');
+      case TurnStatus.victory:
+        return const GameReply('Čestitamo! Pobijedili ste!', ReplyType.victory);
+      case TurnStatus.applied:
+        return GameReply(
+          'Nova riječ: ${result.word!}\nMogućih odgovora: ${result.answers!}',
+          ReplyType.correct,
+        );
     }
-    if (result == CommitResult.conflict) {
-      return const GameReply(
-        'Igra je u međuvremenu promijenjena. Pokušajte ponovno.',
-      );
-    }
-    if (answers == 0) {
-      return const GameReply('Čestitamo! Pobijedili ste!', ReplyType.victory);
-    }
-    return GameReply(
-      'Nova riječ: $word\nMogućih odgovora: $answers',
-      ReplyType.correct,
-    );
   }
 }

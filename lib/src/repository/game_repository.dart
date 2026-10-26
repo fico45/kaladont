@@ -1,7 +1,6 @@
 import 'package:supabase/supabase.dart';
 
 import '../model/game_key.dart';
-import '../model/game_session.dart';
 import '../model/player.dart';
 
 final class Guess {
@@ -21,17 +20,40 @@ final class Guess {
   });
 }
 
-enum CommitResult { applied, duplicate, conflict }
+enum TurnStatus {
+  applied,
+  victory,
+  duplicate,
+  noActiveGame,
+  invalidWord,
+  wrongPrefix,
+  samePlayer,
+  reusedWord,
+  unknownWord,
+  disabled,
+  channelDisabled,
+  staleMessage,
+}
+
+final class TurnResult {
+  final TurnStatus status;
+  final String? word;
+  final int? answers;
+  final String? expected;
+  const TurnResult(this.status, {this.word, this.answers, this.expected});
+
+  factory TurnResult.fromJson(Map<String, dynamic> json) => TurnResult(
+    TurnStatus.values.byName(json['status'] as String),
+    word: json['word'] as String?,
+    answers: json['answers'] as int?,
+    expected: json['expected'] as String?,
+  );
+}
 
 abstract interface class GameRepository {
-  Future<GameSession?> session(GameKey key);
+  Future<String?> currentWord(GameKey key);
   Future<bool> start(GameKey key, String word);
-  Future<CommitResult> commit(
-    GameSession session,
-    Guess guess, {
-    required bool victory,
-    required bool isDev,
-  });
+  Future<TurnResult> guess(Guess guess, {required bool isDev});
   Future<void> upsertGuild({
     required int id,
     required String name,
@@ -45,15 +67,15 @@ final class SupabaseGameRepository implements GameRepository {
   const SupabaseGameRepository(this.client);
 
   @override
-  Future<GameSession?> session(GameKey key) async {
+  Future<String?> currentWord(GameKey key) async {
     final row = await client
         .from('kaladont_sessions')
-        .select()
+        .select('current_word')
         .eq('guild_id', key.guildId)
         .eq('channel_id', key.channelId)
         .eq('active', true)
         .maybeSingle();
-    return row == null ? null : GameSession.fromJson(row);
+    return row == null ? null : row['current_word'] as String;
   }
 
   @override
@@ -67,29 +89,21 @@ final class SupabaseGameRepository implements GameRepository {
   );
 
   @override
-  Future<CommitResult> commit(
-    GameSession session,
-    Guess guess, {
-    required bool victory,
-    required bool isDev,
-  }) async {
-    final result = await client.rpc<String>(
-      'kaladont_commit_turn',
+  Future<TurnResult> guess(Guess guess, {required bool isDev}) async {
+    final result = await client.rpc<Map<String, dynamic>>(
+      'kaladont_guess',
       params: {
         'p_guild_id': guess.key.guildId,
         'p_channel_id': guess.key.channelId,
-        'p_game_id': session.gameId,
-        'p_revision': session.revision,
         'p_message_id': guess.messageId,
         'p_player_id': guess.playerId,
         'p_word': guess.word,
         'p_username': guess.username,
         'p_avatar_url': guess.avatarUrl,
-        'p_victory': victory,
         'p_is_dev': isDev,
       },
     );
-    return CommitResult.values.byName(result);
+    return TurnResult.fromJson(result);
   }
 
   @override

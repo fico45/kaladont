@@ -1,27 +1,45 @@
 # Supabase setup
 
 The bot requires a server-only secret/service-role API key. Keep it in runtime
-secrets. Public anon/authenticated roles cannot execute the bot's mutating RPCs;
-RLS is enabled on its guild, player, session and turn tables. The ranking view
-uses invoker permissions.
+secrets. Bot RPCs and derived dictionary tables are restricted to the service
+role; RLS is enabled on application tables. The ranking view uses invoker rights.
 
-## Dictionary prerequisite
+## Source dictionary
 
-The existing `public.words` table must exist before applying migrations, with at
-least `word text` and `type text` columns. Other columns (such as `base_word`,
-`source_code` and an ID) are preserved. Import your dictionary separately; the
-migrations do not replace or delete its data.
+The initial schema creates `public.words` with `id`, `word`, `base_word`,
+`source_code` and `type` columns. Import source words separately after setup;
+existing source rows are preserved if the table is already present. The initial
+schema starts with an empty dictionary on a fresh project.
 
-Words are matched case-insensitively. Supported types are `imenica`, `glagol`
-and `pridjev`; initial words use the first two types. Counts deduplicate words,
-exclude every word used in the game and honor Croatian digraph boundaries.
-They run in PostgreSQL, so PostgREST's result-row limit cannot cause false wins.
-The prefix index supports continuation lookups. Random selection happens in one
-database query and returns an explicit empty result if no playable word exists.
+The schema builds `kaladont_dictionary`: distinct lowercase eligible words with
+precomputed Croatian prefixes/suffixes. Nouns, verbs and adjectives are playable;
+only nouns and verbs can start a game. Invalid spellings and words shorter than
+two Croatian letters are excluded. Grammatical-form validation is unchanged.
+Membership uses primary-key equality; continuation counts use the prefix index.
+A dense `kaladont_start_words` pool provides uniform indexed random selection.
+An empty pool returns null immediately.
 
-## Apply migrations
+After **every source dictionary import or edit**, rebuild both derived tables:
 
-For the configured local Supabase project:
+```sql
+select public.kaladont_refresh_dictionary();
+```
+
+Run as the database owner or service role. Refreshes are serialized and commit
+atomically; a failed refresh leaves the previous dictionary intact. Schedule
+imports/rebuilds while the bot is stopped so games do not change dictionaries
+mid-turn. The derived tables trade additional fixed database space for lower
+CPU use; the full local dictionary added approximately 97 MB including indexes
+in the October 2026 measurement. Do not rebuild on each bot startup.
+
+## Apply the initial schema
+
+This application has not been deployed. Its schema is consolidated in one file:
+`supabase/migrations/20261026000000_initial_schema.sql`. It creates the final
+optimized tables and functions directly, without intermediate versions or the
+legacy commit RPC.
+
+For a fresh local Supabase project:
 
 ```sh
 supabase start
@@ -29,54 +47,104 @@ supabase migration up --local
 supabase migration list --local
 ```
 
-Apply both files from `supabase/migrations/` in timestamp order. The first adopts
-or creates the existing guild/ranking schema without replacing scores; the second
-adds durable games. No database reset is needed. If applying through a remote
-Supabase SQL Editor, run each file in a transaction, in order, and maintain your
-migration history using your normal deployment process. For a linked project,
-review `supabase db push --dry-run` before deploying migrations. Stop the old bot
-during deployment; its separate scoring calls do not participate in turn receipts.
+Import the dictionary, then run `kaladont_refresh_dictionary()` before playing.
+No dictionary import is bundled with the schema. Local database reset discards
+imported data, so use it only when intentionally starting over.
 
-The migrations create:
+The existing development database has already had this schema applied. Its
+source dictionary, guilds, scores, sessions and receipts were preserved, existing
+game channels were enabled, and local migration history was reconciled to the
+single initial version. Do not apply the retired development migrations.
+
+For the first hosted deployment, use `supabase db push --dry-run` to review the
+initial schema, then apply it to the linked project through the normal deployment
+process. If using the SQL Editor, run the complete file in one transaction and
+maintain migration history. Start the current worker after schema setup and the
+dictionary import/refresh are complete.
+
+## Gameplay and channels
 
 | Object | Purpose |
 | --- | --- |
-| `discord_guilds` | Guild metadata and `enabled` switch |
-| `discord_players`, `guild_players` | Player profiles and guild scores |
+| `discord_guilds` | Guild metadata and master `enabled` switch |
+| `discord_players`, `guild_players` | Profiles and persistent guild scores |
 | `guild_player_rankings` | Tenant-filtered ranking reads |
-| `kaladont_sessions` | One durable session per guild/channel; revision and game UUID prevent stale writes |
-| `kaladont_turns` | Accepted Discord message IDs and award receipts |
-| `kaladont_start_game` | Atomically starts a new game without overwriting an active game |
-| `kaladont_commit_turn` | Locks/checks the expected session, records the receipt, awards points and updates the session in one transaction |
-| `kaladont_random_word`, `kaladont_count_continuations` | Dictionary selection and exact continuation counts |
+| `kaladont_channels` | Enabled gameplay channels |
+| `kaladont_sessions` | Durable state per guild/channel, including current-game start time |
+| `kaladont_turns` | Accepted-message receipts and awarded points |
+| `kaladont_start_game` | Starts or re-enables a channel without replacing an active game |
+| `kaladont_guess` | Validates, deduplicates, counts continuations and commits score/state atomically |
+| `kaladont_set_channel_enabled` | Enables/disables a gameplay channel |
+| `kaladont_prune_receipts` | Deletes eligible old receipts in bounded batches |
 
-A failed transaction changes neither the session nor the score/receipt. Retried
-commits with the same Discord message ID return `duplicate`. Concurrent turns
-against an old revision return `conflict`. New games get new UUIDs, so an old
-turn cannot overwrite a restarted game. Winning sessions remain as inactive
-rows and are replaced on the next start. Development-mode turns are durable
-but award zero points.
+Each word-shaped guess in an enabled channel makes **one RPC**, returning only
+an outcome and the fields needed for its reply. The used-word array stays in
+PostgreSQL; it is never downloaded for guess validation. Start commands read only
+the current word. Database errors propagate rather than treating words as missing.
 
-Guild metadata refreshes preserve the `enabled` flag. Setting it to `false`
-blocks starting games and committing new turns in that guild. The old
-`award_kaladont_points` helper remains for the transactional function and is
-restricted to the service role. Deploy the updated bot with these migrations;
-do not run an old bot alongside it.
+`/kaladont-start` enables gameplay in its channel and starts or resumes its game.
+`/kaladont-disable` disables gameplay there without discarding the session.
+These commands use the existing command-access model; this release does not
+introduce a new administrator-only permission policy. Rankings do not enable
+channels. Threads have their own channel IDs and must be enabled independently.
 
-Turn receipts are retained to preserve replay protection. Do not prune them
-without choosing an explicit replay/retention policy. Existing legacy tables
-(`players`, `servers`, `discord_servers`) are left untouched. Migrate any legacy
-scores separately after verifying their guild ownership.
+The worker loads enabled channels at startup using 500-row pages and refreshes
+the cache every five minutes. Commands update it immediately after successful
+writes. Unconfigured channels are skipped before queueing or contacting Supabase;
+queued messages recheck the cache after preceding commands. SQL also enforces
+channel/guild enablement, so a stale positive cache cannot bypass a disable.
+Direct database enables become visible on refresh or restart. Refresh failures
+preserve the last successful cache and are logged.
 
-## Verify
+## Transactions, replay protection and retention
 
-```sh
-python3 tool/test_database.py
+A guess locks its session row. Duplicate Discord message IDs return `duplicate`;
+scoring, the receipt and the updated session commit or roll back together. Parallel
+guesses validate against the latest locked state. Winning sessions become inactive;
+a subsequent start assigns a new UUID and start time. Development-mode guesses
+persist with zero points.
+
+Message timestamps are decoded from Discord snowflakes. Messages older than
+**24 hours**, more than five minutes in the future, or predating the current
+game are ignored. A duplicate receipt takes precedence and produces no reply.
+Keep the database clock synchronized. Previously unaccepted guesses are validated
+against current state; clients do not submit a revision or claim victory.
+
+The bot runs receipt cleanup at startup and hourly. Each run deletes up to ten
+batches of 1,000 receipts, then yields until the next run. Only receipts older than
+**30 days** whose game is no longer active are eligible. Active-game receipts,
+players, rankings, scores and session used-word lists are preserved. Retained rows
+may therefore exceed 30 days for a long-running game or a cleanup backlog.
+
+Cleanup uses an indexed cutoff and skips locked receipts. A failed batch is logged
+and retried on the next scheduled run. If the worker is offline, cleanup pauses;
+it resumes on startup. For a larger backlog, an owner/service role can call:
+
+```sql
+select public.kaladont_prune_receipts(1000);
 ```
 
-This uses an isolated database and does not change development dictionary data
-or scores. For a live smoke test, use two guilds and two channels, check independent
-rankings, restart the bot during a game, and verify the next turn uses the saved
-word. SIGINT/SIGTERM drains current work before closing connections. A saved turn
-may lack a Discord reply if the process crashes after the database commit;
-response delivery is not transactional with PostgreSQL.
+Pruning does not reset scores. The 24-hour replay window remains enforced after
+receipts have been removed. PostgreSQL can reuse space from deleted rows after
+normal vacuuming; allocated database files need not shrink immediately.
+
+## Verification
+
+```sh
+mise exec -- dart test
+python3 tool/test_database.py
+# Optional full-dictionary timing checks (reads local public.words):
+python3 tool/test_database.py --benchmark
+```
+
+SQL checks create and drop a disposable database and do not change development
+dictionary data or scores. They cover dictionary eligibility/digraphs, exact counts
+beyond one API page, duplicate/concurrent turns, rollback, tenant isolation,
+channel enablement, retention and stale-message rejection. The benchmark copies
+local source words into the disposable database; it is not a hosted load test.
+
+For live verification, use two guilds/channels, check rankings, restart mid-game,
+and test disabling/re-enabling a channel. SIGINT/SIGTERM drains queued work and
+background maintenance before closing clients. Keep one Gateway worker per token;
+replicas still require coordinated event ownership. A crash after a committed
+turn can still lose its Discord reply; no durable response outbox is implemented.

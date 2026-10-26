@@ -2,9 +2,11 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:discord_bot/src/model/game_key.dart';
-import 'package:discord_bot/src/model/game_session.dart';
 import 'package:discord_bot/src/repository/dictionary_repository.dart';
+import 'package:discord_bot/src/repository/channel_repository.dart';
+import 'package:discord_bot/src/repository/retention_repository.dart';
 import 'package:discord_bot/src/repository/game_repository.dart';
+import 'package:discord_bot/src/services/game_service.dart';
 import 'package:supabase/supabase.dart';
 import 'package:test/test.dart';
 
@@ -15,7 +17,7 @@ void main() {
   late List<({String method, Uri uri, String body})> requests;
   Object? randomWord = 'telefon';
   bool fail = false;
-  String commitResult = 'applied';
+  String turnStatus = 'applied';
   final sessionJson = <String, Object?>{
     'guild_id': 7,
     'channel_id': 8,
@@ -31,7 +33,7 @@ void main() {
     requests = [];
     randomWord = 'telefon';
     fail = false;
-    commitResult = 'applied';
+    turnStatus = 'applied';
     final server = await HttpServer.bind(InternetAddress.loopbackIPv4, 0);
     addTearDown(() => server.close(force: true));
     server.listen((request) async {
@@ -50,8 +52,8 @@ void main() {
         response = 1005;
       } else if (request.uri.path.endsWith('/rpc/kaladont_start_game')) {
         response = true;
-      } else if (request.uri.path.endsWith('/rpc/kaladont_commit_turn')) {
-        response = commitResult;
+      } else if (request.uri.path.endsWith('/rpc/kaladont_guess')) {
+        response = {'status': turnStatus, 'word': 'oniks', 'answers': 1};
       } else if (request.uri.path.endsWith('/kaladont_sessions')) {
         response = sessionJson;
       } else if (request.uri.path.endsWith('/guild_player_rankings')) {
@@ -63,6 +65,18 @@ void main() {
             'avatar_url': null,
           },
         ];
+      } else if (request.uri.path.endsWith('/rpc/kaladont_prune_receipts')) {
+        response = 23;
+      } else if (request.uri.path.endsWith('/kaladont_channels')) {
+        final offset = int.parse(request.uri.queryParameters['offset'] ?? '0');
+        response = List.generate(
+          offset == 0 ? 500 : 1,
+          (i) => {'guild_id': 7, 'channel_id': offset + i},
+        );
+      } else if (request.uri.path.endsWith(
+        '/rpc/kaladont_set_channel_enabled',
+      )) {
+        request.response.statusCode = HttpStatus.noContent;
       } else if (request.uri.path.endsWith('/discord_guilds')) {
         request.response.statusCode = HttpStatus.noContent;
       } else {
@@ -86,23 +100,6 @@ void main() {
   });
 
   test(
-    'dictionary validation uses a bounded query; count is server-side',
-    () async {
-      expect(await dictionary.contains('oniks'), isTrue);
-      expect(requests.first.uri.queryParameters['word'], 'ilike.oniks');
-      expect(requests.first.uri.queryParameters['limit'], '1');
-      expect(await dictionary.countContinuations('on', {'oniks'}), 1005);
-      expect(
-        requests.last.uri.path,
-        '/rest/v1/rpc/kaladont_count_continuations',
-      );
-      expect(jsonDecode(requests.last.body), {
-        'p_prefix': 'on',
-        'p_used_words': ['oniks'],
-      });
-    },
-  );
-  test(
     'empty random selection fails once rather than retrying indefinitely',
     () async {
       randomWord = null;
@@ -119,45 +116,46 @@ void main() {
   test('dictionary failure is propagated', () async {
     fail = true;
     await expectLater(
-      dictionary.contains('oniks'),
+      dictionary.randomWord(),
       throwsA(isA<PostgrestException>()),
     );
   });
   test('session read is scoped to active guild and channel', () async {
-    final session = await games.session(
+    final word = await games.currentWord(
       const GameKey(guildId: 7, channelId: 8),
     );
-    expect(session!.revision, 2);
+    expect(word, 'telefon');
+    expect(requests.single.uri.queryParameters['select'], 'current_word');
     expect(requests.single.uri.queryParameters['guild_id'], 'eq.7');
     expect(requests.single.uri.queryParameters['channel_id'], 'eq.8');
     expect(requests.single.uri.queryParameters['active'], 'eq.true');
   });
   test(
-    'commit sends message id and expected version with score/state transaction',
+    'accepted guess makes exactly one request with no session payload',
     () async {
-      final session = GameSession.fromJson(sessionJson);
       const guess = Guess(
         key: GameKey(guildId: 7, channelId: 8),
         messageId: 99,
         playerId: 42,
         username: 'Player',
-        word: 'oniks',
+        word: 'Oniks',
       );
-      expect(
-        await games.commit(session, guess, victory: true, isDev: false),
-        CommitResult.applied,
-      );
-      final params = jsonDecode(requests.last.body) as Map<String, dynamic>;
-      expect(params['p_message_id'], 99);
-      expect(params['p_revision'], 2);
-      expect(params['p_game_id'], session.gameId);
-      expect(params['p_victory'], isTrue);
-      expect(params['p_is_dev'], isFalse);
-      commitResult = 'duplicate';
-      expect(
-        await games.commit(session, guess, victory: true, isDev: false),
-        CommitResult.duplicate,
-      );
+      final service = GameService(dictionary: dictionary, games: games);
+      expect((await service.guess(guess))!.type, ReplyType.correct);
+      expect(requests, hasLength(1));
+      expect(requests.single.uri.path, '/rest/v1/rpc/kaladont_guess');
+      expect(jsonDecode(requests.single.body), {
+        'p_guild_id': 7,
+        'p_channel_id': 8,
+        'p_message_id': 99,
+        'p_player_id': 42,
+        'p_username': 'Player',
+        'p_avatar_url': '',
+        'p_word': 'oniks',
+        'p_is_dev': false,
+      });
+      turnStatus = 'duplicate';
+      expect(await service.guess(guess), isNull);
     },
   );
   test(
@@ -181,4 +179,22 @@ void main() {
       expect(players.single.avatarUrl, '');
     },
   );
+  test('channel cache bootstrap paginates beyond one page', () async {
+    final channels = SupabaseChannelRepository(client);
+    expect(await channels.enabledChannels(), hasLength(501));
+    expect(requests, hasLength(2));
+    expect(requests.last.uri.queryParameters['offset'], '500');
+    expect(requests.first.uri.queryParameters['enabled'], 'eq.true');
+    await channels.setEnabled(const GameKey(guildId: 7, channelId: 8), false);
+    expect(jsonDecode(requests.last.body), {
+      'p_guild_id': 7,
+      'p_channel_id': 8,
+      'p_enabled': false,
+    });
+  });
+  test('retention uses a bounded server-side cleanup RPC', () async {
+    expect(await SupabaseRetentionRepository(client).pruneBatch(), 23);
+    expect(requests.single.uri.path, '/rest/v1/rpc/kaladont_prune_receipts');
+    expect(jsonDecode(requests.single.body), {'p_batch_size': 1000});
+  });
 }
