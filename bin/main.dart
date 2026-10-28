@@ -5,6 +5,10 @@ import 'package:discord_bot/src/config.dart';
 import 'package:discord_bot/src/discord_bot.dart';
 import 'package:discord_bot/src/logging.dart';
 import 'package:discord_bot/src/repository/dictionary_repository.dart';
+import 'package:discord_bot/src/repository/channel_repository.dart';
+import 'package:discord_bot/src/services/game_channels.dart';
+import 'package:discord_bot/src/repository/retention_repository.dart';
+import 'package:discord_bot/src/services/receipt_retention.dart';
 import 'package:discord_bot/src/repository/game_repository.dart';
 import 'package:discord_bot/src/services/channel_queue.dart';
 import 'package:discord_bot/src/services/game_service.dart';
@@ -27,6 +31,10 @@ Future<void> main() async {
       config: config,
       games: games,
       queue: ChannelQueue(),
+      channels: GameChannels(SupabaseChannelRepository(client)),
+      retention: ReceiptRetention(
+        SupabaseRetentionRepository(client).pruneBatch,
+      ),
       game: GameService(
         dictionary: SupabaseDictionaryRepository(client),
         games: games,

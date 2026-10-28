@@ -1,5 +1,4 @@
 import 'package:discord_bot/src/model/game_key.dart';
-import 'package:discord_bot/src/model/game_session.dart';
 import 'package:discord_bot/src/model/player.dart';
 import 'package:discord_bot/src/repository/dictionary_repository.dart';
 import 'package:discord_bot/src/repository/game_repository.dart';
@@ -7,61 +6,47 @@ import 'package:discord_bot/src/services/game_service.dart';
 import 'package:test/test.dart';
 
 const key = GameKey(guildId: 1, channelId: 10);
+const guess = Guess(
+  key: key,
+  messageId: 42,
+  playerId: 2,
+  username: 'Player',
+  word: ' Oniks ',
+);
 
 final class TestDictionary implements DictionaryRepository {
-  bool available = true;
-  bool valid = true;
-  int answers = 1;
-  String? random = 'telefon';
-  Set<String>? excluded;
+  String? word = 'telefon';
   @override
   Future<String> randomWord() async {
-    if (random == null) throw const EmptyDictionaryException();
-    return random!;
-  }
-
-  @override
-  Future<bool> contains(String word) async {
-    if (!available) throw StateError('Database unavailable');
-    return valid;
-  }
-
-  @override
-  Future<int> countContinuations(String prefix, Set<String> usedWords) async {
-    excluded = usedWords;
-    return answers;
+    if (word == null) throw const EmptyDictionaryException();
+    return word!;
   }
 }
 
 final class TestGames implements GameRepository {
-  GameSession? current;
-  int commits = 0;
-  bool? victory;
+  String? current = 'telefon';
+  TurnResult result = const TurnResult(
+    TurnStatus.applied,
+    word: 'oniks',
+    answers: 1,
+  );
+  bool fail = false;
+  Guess? received;
   bool? dev;
-  CommitResult result = CommitResult.applied;
+  int calls = 0;
   @override
-  Future<GameSession?> session(GameKey key) async => current;
+  Future<String?> currentWord(GameKey key) async => current;
   @override
   Future<bool> start(GameKey key, String word) async {
-    if (current != null) return false;
-    current = GameSession(
-      key: key,
-      gameId: 'test',
-      currentWord: word,
-      usedWords: {word},
-    );
+    current = word;
     return true;
   }
 
   @override
-  Future<CommitResult> commit(
-    GameSession session,
-    Guess guess, {
-    required bool victory,
-    required bool isDev,
-  }) async {
-    commits++;
-    this.victory = victory;
+  Future<TurnResult> guess(Guess guess, {required bool isDev}) async {
+    calls++;
+    if (fail) throw StateError('Database unavailable');
+    received = guess;
     dev = isDev;
     return result;
   }
@@ -80,172 +65,97 @@ void main() {
   late TestDictionary dictionary;
   late TestGames games;
   late GameService service;
-  const guess = Guess(
-    key: key,
-    messageId: 42,
-    playerId: 2,
-    username: 'Player',
-    word: 'Oniks',
-  );
   setUp(() {
     dictionary = TestDictionary();
-    games = TestGames()
-      ..current = GameSession(
-        key: key,
-        gameId: 'test',
-        currentWord: 'telefon',
-        usedWords: {'telefon'},
-      );
+    games = TestGames();
     service = GameService(dictionary: dictionary, games: games);
   });
-  test('defensively copies used words and exposes an unmodifiable set', () {
-    final words = {'telefon'};
-    final session = GameSession(
-      key: key,
-      gameId: 'test',
-      currentWord: 'telefon',
-      usedWords: words,
-    );
-    words.add('oniks');
-    expect(session.usedWords, {'telefon'});
-    expect(() => session.usedWords.add('oniks'), throwsUnsupportedError);
+  test('existing game is preserved', () async {
+    expect(await service.start(key), contains('već'));
+    expect(games.current, 'telefon');
   });
-  test('empty dictionary fails once without a retry loop', () async {
+  test('empty dictionary terminates without starting a game', () async {
     games.current = null;
-    dictionary.random = null;
+    dictionary.word = null;
     await expectLater(
       service.start(key),
       throwsA(isA<EmptyDictionaryException>()),
     );
     expect(games.current, isNull);
   });
-  test('existing sessions cannot be overwritten', () async {
-    expect(await service.start(key), contains('već'));
-    expect(games.current!.currentWord, 'telefon');
-  });
-  test('database outage propagates instead of marking word invalid', () async {
-    dictionary.available = false;
-    await expectLater(service.guess(guess), throwsStateError);
-    expect(games.commits, 0);
-  });
-  test('missing dictionary word never commits', () async {
-    dictionary.valid = false;
-    expect((await service.guess(guess))!.message, contains('ne postoji'));
-    expect(games.commits, 0);
-  });
-  test('normalizes accepted word and excludes current guess from continuation count', () async {
+  test('guess is normalized and submitted once', () async {
     final reply = await service.guess(guess);
     expect(reply!.type, ReplyType.correct);
     expect(reply.message, contains('oniks'));
-    expect(dictionary.excluded, {'telefon', 'oniks'});
-    expect(games.commits, 1);
-    expect(games.victory, isFalse);
+    expect(games.received!.word, 'oniks');
+    expect(games.calls, 1);
+    expect(games.dev, isFalse);
   });
-  test('only zero remaining continuations wins', () async {
-    dictionary.answers = 0;
-    expect((await service.guess(guess))!.type, ReplyType.victory);
-    expect(games.victory, isTrue);
+  test('database failure propagates', () async {
+    games.fail = true;
+    await expectLater(service.guess(guess), throwsStateError);
   });
-  test('short input is ignored safely', () async {
-    expect(
-      await service.guess(
-        const Guess(
-          key: key,
-          messageId: 3,
-          playerId: 2,
-          username: 'Player',
-          word: 'a',
-        ),
-      ),
-      isNull,
-    );
-    expect(games.commits, 0);
-  });
-  test('empty content reports a distinct diagnostic reason', () async {
-    final ignored = <GuessIgnoreReason>[];
-    final reply = await service.guess(
-      const Guess(
-        key: key,
-        messageId: 3,
-        playerId: 2,
-        username: 'Player',
-        word: '  ',
-      ),
-      onIgnored: ignored.add,
-    );
-    expect(reply, isNull);
-    expect(ignored, [GuessIgnoreReason.emptyContent]);
-    expect(games.commits, 0);
-  });
-  test('invalid word reports why the message is ignored', () async {
-    final ignored = <GuessIgnoreReason>[];
-    await service.guess(
-      const Guess(
-        key: key,
-        messageId: 3,
-        playerId: 2,
-        username: 'Player',
-        word: 'hello world',
-      ),
-      onIgnored: ignored.add,
-    );
-    expect(ignored, [GuessIgnoreReason.invalidWord]);
-    expect(games.commits, 0);
-  });
-  test('missing channel session reports no active game', () async {
-    games.current = null;
-    final ignored = <GuessIgnoreReason>[];
-    expect(await service.guess(guess, onIgnored: ignored.add), isNull);
-    expect(ignored, [GuessIgnoreReason.noActiveGame]);
-    expect(games.commits, 0);
-  });
-  test('successful guess does not report an ignored message', () async {
-    final ignored = <GuessIgnoreReason>[];
-    expect(
-      (await service.guess(guess, onIgnored: ignored.add))!.type,
-      ReplyType.correct,
-    );
-    expect(ignored, isEmpty);
-  });
-  test('two-letter word can be evaluated safely', () async {
-    expect(
-      (await service.guess(
-        const Guess(
-          key: key,
-          messageId: 3,
-          playerId: 2,
-          username: 'Player',
-          word: 'on',
-        ),
-      ))!.type,
-      ReplyType.correct,
-    );
-  });
-  test(
-    'duplicate committed message produces no second success response',
-    () async {
-      games.result = CommitResult.duplicate;
-      final ignored = <GuessIgnoreReason>[];
-      expect(await service.guess(guess, onIgnored: ignored.add), isNull);
-      expect(ignored, [GuessIgnoreReason.duplicateMessage]);
-    },
-  );
-  test('stale session produces retry response', () async {
-    games.result = CommitResult.conflict;
-    expect((await service.guess(guess))!.message, contains('promijenjena'));
-  });
-  test('same player cannot continue outside development mode', () async {
-    games.current = GameSession(
-      key: key,
-      gameId: 'test',
-      currentWord: 'telefon',
-      usedWords: {'telefon'},
-      lastPlayerId: 2,
-    );
-    expect((await service.guess(guess))!.message, contains('vlastiti'));
-    expect(games.commits, 0);
-    final dev = GameService(dictionary: dictionary, games: games, isDev: true);
-    expect((await dev.guess(guess))!.type, ReplyType.correct);
+  test('development mode is forwarded to authoritative transaction', () async {
+    await GameService(
+      dictionary: dictionary,
+      games: games,
+      isDev: true,
+    ).guess(guess);
     expect(games.dev, isTrue);
+  });
+  test('invalid and empty messages never reach database', () async {
+    for (final word in ['a', 'hello world', '  ', 'dž']) {
+      final reasons = <GuessIgnoreReason>[];
+      expect(
+        await service.guess(
+          Guess(key: key, messageId: 3, playerId: 2, username: 'P', word: word),
+          onIgnored: reasons.add,
+        ),
+        isNull,
+      );
+      expect(
+        reasons.single,
+        word.trim().isEmpty
+            ? GuessIgnoreReason.emptyContent
+            : GuessIgnoreReason.invalidWord,
+      );
+    }
+    expect(games.calls, 0);
+  });
+  for (final entry in {
+    TurnStatus.noActiveGame: GuessIgnoreReason.noActiveGame,
+    TurnStatus.duplicate: GuessIgnoreReason.duplicateMessage,
+    TurnStatus.invalidWord: GuessIgnoreReason.invalidWord,
+    TurnStatus.channelDisabled: GuessIgnoreReason.disabledChannel,
+    TurnStatus.staleMessage: GuessIgnoreReason.staleMessage,
+  }.entries) {
+    test('${entry.key.name} produces no Discord reply', () async {
+      games.result = TurnResult(entry.key);
+      final reasons = <GuessIgnoreReason>[];
+      expect(await service.guess(guess, onIgnored: reasons.add), isNull);
+      expect(reasons, [entry.value]);
+    });
+  }
+  for (final entry in {
+    TurnStatus.wrongPrefix: 'nastavili',
+    TurnStatus.samePlayer: 'vlastiti',
+    TurnStatus.reusedWord: 'korištena',
+    TurnStatus.unknownWord: 'ne postoji',
+    TurnStatus.disabled: 'onemogućen',
+  }.entries) {
+    test('${entry.key.name} maps authoritative failure to warning', () async {
+      games.result = TurnResult(entry.key, word: 'telefon', expected: 'on');
+      final reply = await service.guess(guess);
+      expect(reply!.type, ReplyType.warning);
+      expect(reply.message, contains(entry.value));
+    });
+  }
+  test('victory comes from the database result', () async {
+    games.result = const TurnResult(
+      TurnStatus.victory,
+      word: 'onja',
+      answers: 0,
+    );
+    expect((await service.guess(guess))!.type, ReplyType.victory);
   });
 }

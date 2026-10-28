@@ -45,7 +45,8 @@ send messages and embed links.
 
 ## Commands and gameplay
 
-- `/kaladont-start` starts a game in the invoking channel, or reports the existing game.
+- `/kaladont-start` enables gameplay in the invoking channel and starts a game, or reports the existing game.
+- `/kaladont-disable` disables gameplay in that channel; the saved game can be resumed with `/kaladont-start`.
 - `/kaladont-ranks` shows the invoking guild's top 25 players.
 - Send one dictionary word continuing the last two Croatian letters. `dž`, `lj`
   and `nj` each count as one letter. A word must contain at least two letters.
@@ -55,7 +56,9 @@ send messages and embed links.
 
 Initial words are nouns or verbs. Guesses and continuations may be nouns, verbs
 or adjectives. Dictionary membership does not enforce additional grammatical
-form rules. Non-word messages, bots, webhooks and DMs are ignored.
+form rules. Non-word messages, bots, webhooks, DMs and messages outside enabled
+game channels are ignored. Each validly shaped guess in an enabled channel uses
+one transactional Supabase RPC; used-word lists remain in PostgreSQL.
 
 ## Message diagnostics
 
@@ -74,6 +77,8 @@ and send a word. Look for `Discord message received` and then:
   Check Message Content Intent in the Developer Portal for text messages.
 - `invalidWord`: the input is not one word with at least two Croatian letters.
 - `duplicateMessage`: that message ID already has a committed turn.
+- `disabledChannel`: enable the channel with `/kaladont-start`.
+- `staleMessage`: the message is too old, predates this game, or has an invalid timestamp.
 - `Discord reply sent`: Discord accepted the reply.
 - A processing/response error: inspect its server/channel IDs and exception type.
 
@@ -90,6 +95,8 @@ mise exec -- dart format --output=none --set-exit-if-changed bin lib test
 mise exec -- dart analyze --fatal-infos
 mise exec -- dart test
 python3 tool/test_database.py
+# Optional: benchmark against a disposable copy of the full local dictionary.
+python3 tool/test_database.py --benchmark
 mkdir -p build
 mise exec -- dart run nyxx_commands:compile --no-compile --no-format -o build/main.g.dart bin/main.dart
 mise exec -- dart compile exe build/main.g.dart -o build/server
@@ -101,7 +108,8 @@ The database test runner uses the existing `supabase_db_kaladont` container by
 default, creates an isolated test database, and drops it afterward. Set
 `--container NAME` to use another local PostgreSQL container. It checks migrations,
 rollback, replay protection, concurrent commits, tenant isolation and dictionary
-counts beyond the API row limit. It does not use the development database's data.
+counts beyond the API row limit. The default suite uses fixtures; `--benchmark`
+reads a copy of the development dictionary without modifying it.
 
 `Jenkinsfile` defines formatting, strict analysis, Dart tests, isolated PostgreSQL
 regressions, AOT compilation and a Docker build. See [Jenkins setup](jenkins.md)
@@ -137,3 +145,9 @@ awards for the same message. Discord replies are not stored in a durable outbox.
 
 Dependencies use constructor injection. Game state is stored in Supabase, so the
 former process-local Riverpod providers and their dependency are no longer needed.
+
+Completed-game turn receipts are retained for 30 days, with bounded cleanup at
+startup and hourly. Active-game receipts and all scores are preserved. Messages
+older than 24 hours are ignored to prevent replay after cleanup. After editing
+the source dictionary, rebuild its derived gameplay tables as described in
+[Supabase setup](supabase.md).
