@@ -43,6 +43,14 @@ GRANT USAGE ON SCHEMA public TO service_role;
 """
     sql(name, setup)
     for migration in sorted((root / 'supabase/migrations').glob('*.sql')):
+        if migration.name == '20261108000000_viable_starters.sql':
+            # Exercise a populated baseline upgrade, then roll back and also
+            # apply normally to verify the fresh-install path.
+            sql(name, "BEGIN;\n"
+                + (root / 'test/sql/starter_upgrade_before.sql').read_text()
+                + migration.read_text()
+                + (root / 'test/sql/starter_upgrade_after.sql').read_text()
+                + "ROLLBACK;")
         sql(name, migration.read_text())
     sql(name, (root / 'test/sql/game_transactions.sql').read_text())
     sql(name, (root / 'test/sql/gameplay_dictionary.sql').read_text())
