@@ -13,6 +13,12 @@ on:
       version:
         description: 'Image version'
         required: true
+# Serialize the whole rollout, including retention, so another run cannot prune
+# an image being deployed or move latest during verification.
+concurrency:
+  group: kaladont-production
+  cancel-in-progress: false
+
 #2
 env:
   REGISTRY: "registry.digitalocean.com/kaladont-registry"
@@ -37,8 +43,8 @@ jobs:
       - name: Log in to DigitalOcean Container Registry with short-lived credentials
         run: doctl registry login --expiry-seconds 600
       
-      - name: Remove all old images
-        run: if [ ! -z "$(doctl registry repository list | grep "$(echo $IMAGE_NAME)")" ]; then doctl registry repository delete-manifest $(echo $IMAGE_NAME) $(doctl registry repository list-tags $(echo $IMAGE_NAME) | grep -o "sha.*") --force; else echo "No repository"; fi
+      # Never delete rollback images before push and deployment verification.
+      # latest is promoted only after verification, not merely after upload.
 
       - name: Push image to DigitalOcean Container Registry
         run: docker push $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)
@@ -55,16 +61,91 @@ jobs:
           username: ${{ secrets.USERNAME }}
           key: ${{ secrets.SSHKEY }}
           passphrase: ${{ secrets.PASSPHRASE }}
-          envs: IMAGE_NAME,REGISTRY,{{ secrets.DIGITALOCEAN_ACCESS_TOKEN }},GITHUB_SHA
+          envs: IMAGE_NAME,REGISTRY,GITHUB_SHA
           script: |
+            set -eu
+            image="$REGISTRY/$IMAGE_NAME:$(printf '%s' "$GITHUB_SHA" | cut -c1-7)"
             # Login to registry
             docker login -u ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} -p ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }} registry.digitalocean.com
-            # Stop running container
-            docker stop $(echo $IMAGE_NAME)
-            # Remove old container
-            docker rm $(echo $IMAGE_NAME)
-            # Run a new container from a new image
-            docker run -d \
-            --restart always \
-            --name $(echo $IMAGE_NAME) \
-            $(echo $REGISTRY)/$(echo $IMAGE_NAME):$(echo $GITHUB_SHA | head -c7)
+            # Pull before stopping the existing worker. A pull failure leaves it running.
+            docker pull "$image"
+            expected_image=$(docker image inspect --format '{{.Id}}' "$image")
+            if docker container inspect "$IMAGE_NAME" >/dev/null 2>&1; then
+              docker stop "$IMAGE_NAME"
+              docker rm "$IMAGE_NAME"
+            fi
+            container=$(docker run -d --restart always --name "$IMAGE_NAME" "$image")
+
+            # This Gateway worker has no HTTP health endpoint. Require its existing
+            # Discord readiness event, then a stable process with no restarts.
+            # A timeout/failure leaves latest and every rollback manifest untouched.
+            ready=false
+            for attempt in $(seq 1 24); do
+              test "$(docker inspect --format '{{.State.Running}} {{.RestartCount}} {{.Image}}' "$container")" = "true 0 $expected_image"
+              if docker logs "$container" 2>&1 | grep -F '"message":"Discord ready"' >/dev/null; then
+                ready=true
+                break
+              fi
+              sleep 5
+            done
+            test "$ready" = true
+            sleep 30
+            test "$(docker inspect --format '{{.State.Running}} {{.RestartCount}} {{.Image}}' "$container")" = "true 0 $expected_image"
+
+            # latest means last verified deployment, not last attempted upload.
+            # Until this point it remains the immediate rollback pull target;
+            # older verified releases remain available through their SHA tags.
+            docker tag "$image" "$REGISTRY/$IMAGE_NAME:latest"
+            docker push "$REGISTRY/$IMAGE_NAME:latest"
+
+  cleanup:
+    runs-on: ubuntu-latest
+    needs: deploy
+    if: ${{ success() }}
+    steps:
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Prune old registry images (keep last 5 plus latest)
+        shell: bash
+        run: |
+          set -euo pipefail
+          # list-manifests follows pagination; use structured metadata, not CLI
+          # table order. Retain five newest tagged manifests plus latest's digest.
+          # Untagged manifests may be multi-platform children: leave them alone.
+          doctl registry repository list-manifests "$IMAGE_NAME" --output json > manifests.json
+          python3 - <<'PY' > prune.txt
+          import json
+          import re
+          from datetime import datetime
+
+          with open('manifests.json') as source:
+              manifests = json.load(source)
+          if not isinstance(manifests, list):
+              raise ValueError('Expected a complete manifest list; refusing cleanup')
+          tagged = []
+          for manifest in manifests:
+              if not re.fullmatch(r'sha256:[0-9a-f]{64}', manifest['digest']):
+                  raise ValueError('Invalid digest; refusing cleanup')
+              tags = manifest.get('tags') or []
+              if not isinstance(tags, list) or not all(isinstance(tag, str) for tag in tags):
+                  raise ValueError('Invalid tags; refusing cleanup')
+              if tags:
+                  updated = datetime.fromisoformat(manifest['updated_at'].replace('Z', '+00:00'))
+                  if updated.tzinfo is None:
+                      raise ValueError('Missing timestamp timezone; refusing cleanup')
+                  tagged.append((updated, manifest['digest'], tags))
+          latest = {digest for _, digest, tags in tagged if 'latest' in tags}
+          if len(latest) != 1:
+              raise ValueError('Expected one verified latest image; refusing cleanup')
+          tagged.sort(reverse=True)
+          keep = {digest for _, digest, _ in tagged[:5]} | latest
+          # Validate and calculate the complete plan before issuing any deletion.
+          for digest in sorted({digest for _, digest, _ in tagged} - keep):
+              print(digest)
+          PY
+          while IFS= read -r digest; do
+            doctl registry repository delete-manifest "$IMAGE_NAME" "$digest" --force
+          done < prune.txt
