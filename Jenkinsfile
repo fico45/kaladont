@@ -87,6 +87,23 @@ pipeline {
                 sh 'docker build --tag "$CI_IMAGE" .'
             }
         }
+
+        stage('Deploy (KAN-27 image retention skeleton)') {
+            // Disabled until registry credentials, runtime secrets, target and
+            // Gateway readiness verification are implemented for Jenkins.
+            when { expression { return false } }
+            steps {
+                // Publish an immutable SHA tag; pull it before stopping the worker.
+                // Never delete registry images before replacement verification.
+                // Keep latest on the known-good image until the new worker is
+                // Discord-ready and stable; then promote the new image to latest.
+                // Keep the last N=5 tagged manifests PLUS latest's manifest.
+                // Prune only after successful deployment AND verification, never
+                // in post { always }, on failed push, or on failed rollout.
+                // Serialize deployment/promotion/pruning with all other deployers.
+                echo 'Deployment disabled: implement verified rollout before registry cleanup.'
+            }
+        }
     }
 
     post {
