@@ -46,6 +46,7 @@ GRANT USAGE ON SCHEMA public TO service_role;
         sql(name, migration.read_text())
     sql(name, (root / 'test/sql/game_transactions.sql').read_text())
     sql(name, (root / 'test/sql/gameplay_dictionary.sql').read_text())
+    sql(name, (root / 'test/sql/kan-24-dead-end-starters.sql').read_text())
     sql(name, (root / 'test/sql/receipt_retention.sql').read_text())
     sql(name, "SET ROLE service_role; SELECT public.kaladont_start_game(1,30,'telefon'); SELECT public.kaladont_start_game(1,31,'telefon');")
 

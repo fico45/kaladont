@@ -207,8 +207,17 @@ begin
   ) candidates
   where cardinality(letters) >= 2;
   insert into public.kaladont_start_words(slot, word)
-    select row_number() over (order by word), word
-    from public.kaladont_dictionary where can_start;
+    select row_number() over (order by d.word), d.word
+    from (
+      select word, can_start, public.kaladont_letters(word) as letters
+      from public.kaladont_dictionary
+    ) d
+    where d.can_start
+      and exists (
+        select 1 from public.kaladont_dictionary c
+        where c.prefix = array_to_string(d.letters[array_length(d.letters, 1)-1:], '')
+          and c.word <> d.word
+      );
   analyze public.kaladont_dictionary;
   analyze public.kaladont_start_words;
 end;
