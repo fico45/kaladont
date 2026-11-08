@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Offline close/drain/delivery regressions. Timers and subscriptions are injected;
 // start()'s live Gateway connection is deliberately never executed.
 import 'dart:async';
@@ -107,9 +110,9 @@ void main() {
     h.channel.failSend = true;
     await h.message();
     expect(h.games.calls, ['guess']);
-    expect(h.channel.sent, hasLength(2));
-    expect(h.channel.sent.first.embeds, hasLength(1));
-    expect(h.channel.sent.last.content, retryMessage);
+    expect(h.channel.sendAttempts, hasLength(2));
+    expect(h.channel.sendAttempts.first.embeds, hasLength(1));
+    expect(h.channel.sendAttempts.last.content, retryMessage);
   });
 
   for (final status in [
@@ -122,7 +125,7 @@ void main() {
       h.games.result = TurnResult(status);
       await h.message();
       expect(h.games.calls, ['guess']);
-      expect(h.channel.sent, isEmpty);
+      expect(h.channel.sendAttempts, isEmpty);
     });
   }
 
@@ -134,8 +137,8 @@ void main() {
     final second = h.message(id: 43);
     await Future.wait([first, recover, second]);
     expect(h.games.guesses.map((g) => g.messageId), [42, 43]);
-    expect(h.channel.sent.first.content, retryMessage);
-    expect(h.channel.sent.last.embeds!.single.title, 'Točan odgovor!');
+    expect(h.channel.sendAttempts.first.content, retryMessage);
+    expect(h.channel.sendAttempts.last.embeds!.single.title, 'Točan odgovor!');
   });
 
   for (final entry in <(String, int?, bool, int?, bool, bool)>[

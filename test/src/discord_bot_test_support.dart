@@ -170,14 +170,14 @@ class TestGuild implements Guild {
 
 class TestTextChannel implements TextChannel {
   final int channelId;
-  final sent = <MessageBuilder>[];
+  final sendAttempts = <MessageBuilder>[];
   bool failSend = false;
   TestTextChannel(this.channelId);
   @override
   dynamic noSuchMethod(Invocation invocation) {
     if (invocation.memberName == #id) return Snowflake(channelId);
     if (invocation.memberName == #sendMessage) {
-      sent.add(invocation.positionalArguments.single as MessageBuilder);
+      sendAttempts.add(invocation.positionalArguments.single as MessageBuilder);
       return failSend
           ? Future<Message>.error(StateError('delivery failed'))
           : Future<Message>.value(TestMessage(this));

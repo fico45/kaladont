@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Orchestration invariants at the repository boundary, NOT SQL state proofs.
 // Database outcomes are scripted; UUID, score and transactional reset invariants
 // require the separate SQL regression suite, not a state machine in a mock.
@@ -24,7 +27,7 @@ void main() {
       expect(h.games.calls, ['guess']);
       expect(h.games.starts, isEmpty);
       expect(h.repository.writes, isEmpty);
-      expect(h.channel.sent.single.embeds!.single.title, 'Ups!');
+      expect(h.channel.sendAttempts.single.embeds!.single.title, 'Ups!');
     });
   }
 
@@ -37,8 +40,11 @@ void main() {
       await h.message(id: 43);
       expect(h.games.guesses.map((g) => g.messageId), [42, 43]);
       expect(h.games.calls, ['guess', 'guess']);
-      expect(h.channel.sent, hasLength(1));
-      expect(h.channel.sent.single.embeds!.single.title, 'Igra završena!');
+      expect(h.channel.sendAttempts, hasLength(1));
+      expect(
+        h.channel.sendAttempts.single.embeds!.single.title,
+        'Igra završena!',
+      );
       expect(h.games.starts, isEmpty);
     },
   );
@@ -57,7 +63,7 @@ void main() {
       answers: 1,
     );
     await h.message(id: 43);
-    expect(h.channel.sent.last.embeds!.single.title, 'Točan odgovor!');
+    expect(h.channel.sendAttempts.last.embeds!.single.title, 'Točan odgovor!');
   });
 
   test(
@@ -69,7 +75,10 @@ void main() {
       await dev.message();
       expect(dev.games.calls, ['guess']);
       expect(dev.games.development, [true]);
-      expect(dev.channel.sent.single.embeds!.single.title, 'Točan odgovor!');
+      expect(
+        dev.channel.sendAttempts.single.embeds!.single.title,
+        'Točan odgovor!',
+      );
     },
   );
 
@@ -85,6 +94,6 @@ void main() {
     ]);
     expect(dev.games.development, [true, true]);
     expect(dev.games.calls, ['guess', 'guess']);
-    expect(dev.channel.sent, hasLength(2));
+    expect(dev.channel.sendAttempts, hasLength(2));
   });
 }

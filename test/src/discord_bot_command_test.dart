@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Real command orchestration with recording repositories and Discord doubles.
 import 'dart:async';
 
@@ -75,7 +78,7 @@ void main() {
     gate.complete();
     await Future.wait([blocker, disable, message]);
     expect(h.games.guesses, isEmpty);
-    expect(h.channel.sent, isEmpty);
+    expect(h.channel.sendAttempts, isEmpty);
   });
 
   test('ranking reads guild without enabling channel', () async {
@@ -127,21 +130,24 @@ void main() {
     expect(h.repository.writes, isEmpty);
   });
 
-  test('same channel start message disable preserve queue order', () async {
-    final gate = Completer<void>();
-    h.games.startGate = gate.future;
-    final start = h.command();
-    await h.games.startEntered.future;
-    final message = h.message();
-    final disable = h.command(start: false, disable: true);
-    expect(h.games.guesses, isEmpty);
-    expect(h.repository.writes, [(key, true)]);
-    gate.complete();
-    await Future.wait([start, message, disable]);
-    expect(h.games.calls, ['guild', 'current', 'start', 'guess', 'guild']);
-    expect(h.channel.sent, hasLength(1));
-    expect(h.repository.writes, [(key, true), (key, false)]);
-  });
+  test(
+    'start, message, and disable in the same channel preserve queue order',
+    () async {
+      final gate = Completer<void>();
+      h.games.startGate = gate.future;
+      final start = h.command();
+      await h.games.startEntered.future;
+      final message = h.message();
+      final disable = h.command(start: false, disable: true);
+      expect(h.games.guesses, isEmpty);
+      expect(h.repository.writes, [(key, true)]);
+      gate.complete();
+      await Future.wait([start, message, disable]);
+      expect(h.games.calls, ['guild', 'current', 'start', 'guess', 'guild']);
+      expect(h.channel.sendAttempts, hasLength(1));
+      expect(h.repository.writes, [(key, true), (key, false)]);
+    },
+  );
 
   test(
     'other channel command completes while first start is blocked',
