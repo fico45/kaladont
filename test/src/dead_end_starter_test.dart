@@ -80,8 +80,8 @@ void main() {
   test('existing game is preserved even when viable pool is empty', () async {
     games.current = 'telefon';
     final reply = await service.start(_key);
-    expect(reply, contains('već'));
-    expect(reply, contains('telefon'));
+    expect(reply.message, contains('već'));
+    expect(reply.message, contains('telefon'));
     expect(dictionary.calls, 0);
     expect(games.starts, isEmpty);
   });
@@ -92,8 +92,8 @@ void main() {
       () async {
         dictionary.selected = word;
         final reply = await service.start(_key);
-        expect(reply, contains('Nova igra'));
-        expect(reply, contains(word));
+        expect(reply.message, contains('Nova igra'));
+        expect(reply.message, contains(word));
         expect(dictionary.calls, 1);
         expect(games.starts, [(_key, word)]);
       },
@@ -106,8 +106,8 @@ void main() {
       dictionary.selected = 'konj';
       games.started = false;
       final reply = await service.start(_key);
-      expect(reply, contains('već'));
-      expect(reply, isNot(contains('Nova igra')));
+      expect(reply.message, contains('već'));
+      expect(reply.message, isNot(contains('Nova igra')));
       expect(dictionary.calls, 1);
       expect(games.starts, [(_key, 'konj')]);
     },
@@ -130,7 +130,7 @@ void main() {
     );
     expect(games.starts, isEmpty);
     dictionary.selected = 'konj';
-    expect(await service.start(_key), contains('Nova igra'));
+    expect((await service.start(_key)).message, contains('Nova igra'));
     expect(dictionary.calls, 2);
     expect(games.starts, [(_key, 'konj')]);
   });

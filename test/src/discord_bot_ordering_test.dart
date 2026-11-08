@@ -368,7 +368,10 @@ void main() {
       final message = receive(h);
       await Future.wait([command, message]);
       expect(h.games.calls, ['guild', 'current', 'guess']);
-      expect(h.context.replies.single.content, endsWith('telefon'));
+      expect(
+        h.context.replies.single.embeds!.single.description,
+        endsWith('telefon'),
+      );
       expect(h.channel.sendAttempts, hasLength(1));
     },
   );
