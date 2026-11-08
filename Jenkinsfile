@@ -88,7 +88,7 @@ pipeline {
             }
         }
 
-        stage('Deploy (KAN-15 skeleton)') {
+        stage('Deploy (KAN-27 image retention skeleton)') {
             // Disabled until registry credentials, runtime secrets, target and
             // Gateway readiness verification are implemented for Jenkins.
             when { expression { return false } }
