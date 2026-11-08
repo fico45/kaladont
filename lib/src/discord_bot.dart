@@ -19,6 +19,7 @@ final class DiscordBot {
   final GameRepository games;
   final ChannelQueue queue;
   final GameChannels channels;
+  final Map<GameKey, Completer<void>> _commandGates = {};
   Timer? _channelRefresh;
   Timer? _receiptCleanup;
   Future<void>? _channelRefreshWork;
@@ -50,41 +51,7 @@ final class DiscordBot {
       _receiptCleanupWork = _pruneReceipts();
       unawaited(_receiptCleanupWork);
     });
-    final commands =
-        CommandsPlugin(
-            prefix: mentionOr((_) => '!'),
-            options: CommandsOptions(
-              logErrors: true,
-              type: CommandType.slashOnly,
-            ),
-          )
-          ..addCommand(
-            ChatCommand(
-              'kaladont-start',
-              'Započni novu igru Kaladonta',
-              id('kaladont-start', (ChatContext context) async {
-                await _command(context, startGame: true);
-              }),
-            ),
-          )
-          ..addCommand(
-            ChatCommand(
-              'kaladont-ranks',
-              'Rank lista Kaladont igre',
-              id('kaladont-ranks', (ChatContext context) async {
-                await _command(context, startGame: false);
-              }),
-            ),
-          );
-    commands.addCommand(
-      ChatCommand(
-        'kaladont-disable',
-        'Onemogući Kaladont u ovom kanalu',
-        id('kaladont-disable', (ChatContext context) async {
-          await _command(context, startGame: false, disableChannel: true);
-        }),
-      ),
-    );
+    final commands = _createCommands();
     final client = await Nyxx.connectGateway(
       config.discordToken,
       GatewayIntents.messageContent | GatewayIntents.allUnprivileged,
@@ -107,36 +74,7 @@ final class DiscordBot {
       );
     });
     _messages = client.onMessageCreate.listen(
-      (event) {
-        final author = event.message.author;
-        final context = _messageContext(event);
-        final reason = messageIgnoreReason(
-          guildId: event.guildId?.value,
-          isBot: author is! User || author.isBot,
-          webhookId: event.message.webhookId?.value,
-          closing: _closing,
-          channelEnabled:
-              event.guildId != null &&
-              channels.contains(
-                GameKey(
-                  guildId: event.guildId!.value,
-                  channelId: event.message.channel.id.value,
-                ),
-              ),
-        );
-        logEvent(
-          'info',
-          'Discord message received',
-          context: {
-            ...context,
-            'content_length': event.message.content.length,
-            'disposition': reason == null ? 'processing' : 'ignored',
-            if (reason != null) 'reason': reason,
-          },
-        );
-        if (reason != null) return;
-        unawaited(_message(event));
-      },
+      (event) => unawaited(_receiveMessage(event)),
       onError: (Object error, StackTrace stack) {
         logEvent(
           'error',
@@ -147,12 +85,104 @@ final class DiscordBot {
     );
   }
 
+  CommandsPlugin _createCommands() {
+    final commands =
+        _OrderedCommandsPlugin(
+            this,
+            prefix: mentionOr((_) => '!'),
+            options: CommandsOptions(
+              logErrors: true,
+              type: CommandType.slashOnly,
+            ),
+          )
+          ..addCommand(
+            ChatCommand(
+              'kaladont-start',
+              'Započni novu igru Kaladonta',
+              id('kaladont-start', (ChatContext context) async {
+                await _command(context, startGame: true, queued: true);
+              }),
+            ),
+          )
+          ..addCommand(
+            ChatCommand(
+              'kaladont-ranks',
+              'Rank lista Kaladont igre',
+              id('kaladont-ranks', (ChatContext context) async {
+                await _command(context, startGame: false, queued: true);
+              }),
+            ),
+          );
+    commands.addCommand(
+      ChatCommand(
+        'kaladont-disable',
+        'Onemogući Kaladont u ovom kanalu',
+        id('kaladont-disable', (ChatContext context) async {
+          await _command(
+            context,
+            startGame: false,
+            disableChannel: true,
+            queued: true,
+          );
+        }),
+      ),
+    );
+    return commands;
+  }
+
+  Future<void> _receiveMessage(MessageCreateEvent event) async {
+    final author = event.message.author;
+    final context = _messageContext(event);
+    final reason = messageIgnoreReason(
+      guildId: event.guildId?.value,
+      isBot: author is! User || author.isBot,
+      webhookId: event.message.webhookId?.value,
+      closing: _closing,
+      channelEnabled:
+          event.guildId != null &&
+          _enabledOrPending(
+            GameKey(
+              guildId: event.guildId!.value,
+              channelId: event.message.channel.id.value,
+            ),
+          ),
+    );
+    logEvent(
+      'info',
+      'Discord message received',
+      context: {
+        ...context,
+        'content_length': event.message.content.length,
+        'disposition': reason == null ? 'processing' : 'ignored',
+        if (reason != null) 'reason': reason,
+      },
+    );
+    if (reason != null) return;
+    await _message(event);
+  }
+
+  bool _enabledOrPending(GameKey key) =>
+      channels.contains(key) || _commandGates.containsKey(key);
+
+  Future<void> _runCommand(GameKey key, Future<void> Function() action) async {
+    final gate = Completer<void>();
+    _commandGates[key] = gate;
+    try {
+      await queue.run(key, action);
+    } finally {
+      gate.complete();
+      // An earlier command must never remove or complete a newer gate.
+      if (identical(_commandGates[key], gate)) _commandGates.remove(key);
+    }
+  }
+
   Future<void> _command(
     ChatContext context, {
     required bool startGame,
     bool disableChannel = false,
+    bool queued = false,
   }) async {
-    if (_closing) return;
+    if (_closing && !queued) return;
     final guild = context.guild;
     if (guild == null) {
       await context.respond(
@@ -175,7 +205,7 @@ final class DiscordBot {
           : 'kaladont-ranks',
     };
     logEvent('info', 'Discord command received', context: contextFields);
-    await queue.run(key, () async {
+    Future<void> action() async {
       try {
         await games.upsertGuild(
           id: guild.id.value,
@@ -224,7 +254,15 @@ final class DiscordBot {
           ),
         );
       }
-    });
+    }
+
+    // Slash callbacks already own the slot reserved before context resolution.
+    // Direct handler calls reserve their own slot and gate here.
+    if (queued) {
+      await action();
+    } else {
+      await _runCommand(key, action);
+    }
   }
 
   Future<void> _message(MessageCreateEvent event) async {
@@ -233,8 +271,12 @@ final class DiscordBot {
       channelId: event.message.channel.id.value,
     );
     final context = _messageContext(event);
+    final gate = _commandGates[key];
     try {
+      // Reserve the message slot now, before waiting, so later commands cannot
+      // overtake it. Only await the gate captured at ingress, never a newer one.
       await queue.run(key, () async {
+        if (gate != null && !gate.isCompleted) await gate.future;
         if (!channels.contains(key)) return;
         try {
           final reply = await game.guess(
@@ -344,6 +386,62 @@ final class DiscordBot {
     } finally {
       await _client?.close();
     }
+  }
+}
+
+// Reserve a channel slot before nyxx_commands performs any asynchronous guild/
+// channel lookup. A gate created only inside the command callback is too late.
+final class _OrderedCommandsPlugin extends CommandsPlugin {
+  final DiscordBot bot;
+
+  _OrderedCommandsPlugin(
+    this.bot, {
+    required super.prefix,
+    required super.options,
+  });
+
+  late final EventManager _events = _CommandEvents(this, bot);
+
+  @override
+  EventManager get eventManager => _events;
+}
+
+final class _CommandEvents extends EventManager {
+  final DiscordBot bot;
+
+  _CommandEvents(super.commands, this.bot);
+
+  @override
+  Future<void> processChatInteraction(
+    ApplicationCommandInteraction interaction,
+    List<InteractionOption> options,
+    ChatCommand command,
+  ) {
+    if (bot._closing) return Future<void>.value();
+    final guildId = interaction.guildId;
+    final channelId = interaction.channelId;
+    if (guildId == null || channelId == null) {
+      return super.processChatInteraction(interaction, options, command);
+    }
+    // Context creation and the plugin's normal auto-ack timer now run inside
+    // the queue. Defer at ingress instead, so a busy channel cannot expire the
+    // interaction while it waits for its turn. This is not a gameplay reply.
+    final acknowledgement = command.resolvedOptions.autoAcknowledgeInteractions!
+        ? interaction.acknowledge(
+            isEphemeral:
+                command.resolvedOptions.defaultResponseLevel!.hideInteraction,
+          )
+        : Future<void>.value();
+    // Observe early failures even while an earlier queue slot is still busy;
+    // awaiting the original future below still propagates them to the plugin.
+    acknowledgement.ignore();
+    return bot._runCommand(
+      GameKey(guildId: guildId.value, channelId: channelId.value),
+      () async {
+        await acknowledgement;
+        await super.processChatInteraction(interaction, options, command);
+      },
+    );
   }
 }
 
