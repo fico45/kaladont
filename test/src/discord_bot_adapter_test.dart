@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Discord-to-repository argument contracts, without a SupabaseClient.
 // These do not assert HTTP/RPC names or p_* serialization: those belong to
 // SupabaseGameRepository and cannot be verified by mocking GameRepository.

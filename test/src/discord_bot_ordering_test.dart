@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Exercise real ingress/handlers offline, including the pre-cache Gateway filter.
 import 'dart:async';
 import 'dart:mirrors';
@@ -140,14 +143,14 @@ void main() {
     await h.enable();
     await receive(h);
     expect(h.games.calls, ['guess']);
-    expect(h.channel.sent, hasLength(1));
+    expect(h.channel.sendAttempts, hasLength(1));
     expect(gates(h), isEmpty);
   });
 
   test('disabled channel with no pending command stays ignored', () async {
     await receive(h);
     expect(h.games.calls, isEmpty);
-    expect(h.channel.sent, isEmpty);
+    expect(h.channel.sendAttempts, isEmpty);
     expect(gates(h), isEmpty);
   });
 
@@ -205,7 +208,7 @@ void main() {
       'guess',
       'guild',
     ]);
-    expect(h.channel.sent, hasLength(2));
+    expect(h.channel.sendAttempts, hasLength(2));
     expect(firstGate.isCompleted, isTrue);
     expect(lastGate.isCompleted, isTrue);
     expect(gates(h), isEmpty);
@@ -225,7 +228,7 @@ void main() {
       try {
         await receive(h, channel: other).timeout(const Duration(seconds: 2));
         expect(h.games.guesses.single.key, otherKey);
-        expect(other.sent, hasLength(1));
+        expect(other.sendAttempts, hasLength(1));
         expect(gates(h)[key]!.isCompleted, isFalse);
       } finally {
         release.complete();
@@ -273,7 +276,7 @@ void main() {
       final disable = h.command(start: false, disable: true);
       await Future.wait([message, disable]);
       expect(h.games.calls, ['guess', 'guild']);
-      expect(h.channel.sent, hasLength(1));
+      expect(h.channel.sendAttempts, hasLength(1));
       expect(h.channels.contains(key), isFalse);
     },
   );
@@ -347,7 +350,7 @@ void main() {
       try {
         await Future<void>.delayed(Duration.zero);
         expect(h.games.guesses, isEmpty);
-        expect(h.channel.sent, isEmpty);
+        expect(h.channel.sendAttempts, isEmpty);
       } finally {
         plugin.contextManager.release.complete();
         await Future.wait([disable, message]);
@@ -366,7 +369,7 @@ void main() {
       await Future.wait([command, message]);
       expect(h.games.calls, ['guild', 'current', 'guess']);
       expect(h.context.replies.single.content, endsWith('telefon'));
-      expect(h.channel.sent, hasLength(1));
+      expect(h.channel.sendAttempts, hasLength(1));
     },
   );
 }

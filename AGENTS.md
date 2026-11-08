@@ -176,10 +176,13 @@ subscription or Edge Function is currently used by the bot.
   `supabase/migrations/20261026000000_initial_schema.sql`. It creates the final
   schema directly, including an empty source dictionary. Retired intermediate
   development migrations are not needed.
+- `20261108000000_viable_starters.sql` updates dictionary refresh and rebuilds
+  the starter pool to exclude words without an unused continuation. Stop the
+  worker before applying this migration; restart it after success.
 - Inspect migration history in the target environment before applying changes.
   Do not infer deployment state from a different developer's database or from
   historical work notes.
-- For a fresh project, apply the baseline, import dictionary data, refresh the
+- For a fresh project, apply all migrations, import dictionary data, refresh the
   derived tables, configure the worker's cloud URL/service credential and verify
   gameplay. Schema application alone does not transfer dictionary rows, scores,
   sessions or runtime secrets. An empty dictionary cannot start games.
