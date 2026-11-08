@@ -71,7 +71,7 @@ void main() {
     service = GameService(dictionary: dictionary, games: games);
   });
   test('existing game is preserved', () async {
-    expect(await service.start(key), contains('već'));
+    expect((await service.start(key)).message, contains('već'));
     expect(games.current, 'telefon');
   });
   test('empty dictionary terminates without starting a game', () async {
@@ -143,10 +143,10 @@ void main() {
     TurnStatus.unknownWord: 'ne postoji',
     TurnStatus.disabled: 'onemogućen',
   }.entries) {
-    test('${entry.key.name} maps authoritative failure to warning', () async {
+    test('${entry.key.name} preserves authoritative reply reason', () async {
       games.result = TurnResult(entry.key, word: 'telefon', expected: 'on');
       final reply = await service.guess(guess);
-      expect(reply!.type, ReplyType.warning);
+      expect(reply!.type.name, entry.key.name);
       expect(reply.message, contains(entry.value));
     });
   }

@@ -250,15 +250,34 @@ final class DiscordBot {
         if (disableChannel) {
           await channels.setEnabled(key, false);
           await context.respond(
-            MessageBuilder(content: 'Kaladont je onemogućen u ovom kanalu.'),
+            MessageBuilder(
+              embeds: [
+                EmbedBuilder()
+                  ..description = 'Kaladont je onemogućen u ovom kanalu.'
+                  ..color = DiscordColor(0xFF0000),
+              ],
+            ),
           );
         } else if (startGame) {
           await channels.setEnabled(key, true);
-          await context.respond(MessageBuilder(content: await game.start(key)));
+          final reply = await game.start(key);
+          await context.respond(
+            MessageBuilder(
+              embeds: [
+                EmbedBuilder()
+                  ..description = reply.message
+                  ..color = DiscordColor(switch (reply.outcome) {
+                    StartOutcome.created => 0x008000,
+                    StartOutcome.existing ||
+                    StartOutcome.concurrent => 0x90EE90,
+                  }),
+              ],
+            ),
+          );
         } else {
           final players = await games.ranking(key.guildId);
           final embed = EmbedBuilder()
-            ..color = DiscordColor.fromRgb(124, 252, 0)
+            ..color = DiscordColor(0x90EE90)
             ..title = 'Rank lista Kaladont igre'
             ..description = players.isEmpty
                 ? 'Još nema osvojenih bodova.'
@@ -333,11 +352,23 @@ final class DiscordBot {
           final embed = EmbedBuilder()
             ..title = switch (reply.type) {
               ReplyType.correct => 'Točan odgovor!',
-              ReplyType.warning => 'Ups!',
               ReplyType.victory => 'Igra završena!',
+              ReplyType.wrongPrefix ||
+              ReplyType.samePlayer ||
+              ReplyType.reusedWord ||
+              ReplyType.unknownWord ||
+              ReplyType.disabled => 'Ups!',
             }
             ..description = reply.message
-            ..color = DiscordColor.fromRgb(0, 200, 200);
+            ..color = DiscordColor(switch (reply.type) {
+              ReplyType.correct => 0x98FB98,
+              ReplyType.victory => 0x008000,
+              ReplyType.wrongPrefix => 0xFFA500,
+              ReplyType.samePlayer => 0xFFD580,
+              ReplyType.reusedWord => 0x800080,
+              ReplyType.unknownWord => 0xCBC3E3,
+              ReplyType.disabled => 0xFF0000,
+            });
           await event.message.channel.sendMessage(
             MessageBuilder(embeds: [embed]),
           );

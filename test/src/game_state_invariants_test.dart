@@ -56,7 +56,10 @@ void main() {
     await h.command();
     expect(h.games.calls, ['guess', 'guild', 'current', 'start']);
     expect(h.games.starts, [(key, 'telefon')]);
-    expect(h.context.replies.single.content, contains('Nova igra'));
+    expect(
+      h.context.replies.single.embeds!.single.description,
+      contains('Nova igra'),
+    );
     h.games.result = const TurnResult(
       TurnStatus.applied,
       word: 'oniks',

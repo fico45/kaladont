@@ -20,7 +20,7 @@ void main() {
     expect(h.games.starts, [(key, 'telefon')]);
     expect(h.games.calls, ['guild', 'current', 'start']);
     expect(
-      h.context.replies.single.content,
+      h.context.replies.single.embeds!.single.description,
       'Nova igra kaladonta započeta! Početna riječ: telefon',
     );
   });
@@ -30,7 +30,7 @@ void main() {
     h.games.current = 'telefon';
     await h.command();
     expect(
-      h.context.replies.single.content,
+      h.context.replies.single.embeds!.single.description,
       'U ovom kanalu već je pokrenuta igra. Trenutna riječ: telefon',
     );
     expect(h.games.starts, isEmpty);
@@ -64,7 +64,7 @@ void main() {
     expect(h.games.calls, ['guild']);
     expect(h.games.current, 'telefon');
     expect(
-      h.context.replies.single.content,
+      h.context.replies.single.embeds!.single.description,
       'Kaladont je onemogućen u ovom kanalu.',
     );
   });

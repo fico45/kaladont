@@ -60,6 +60,25 @@ form rules. Non-word messages, bots, webhooks, DMs and messages outside enabled
 game channels are ignored. Each validly shaped guess in an enabled channel uses
 one transactional Supabase RPC; used-word lists remain in PostgreSQL.
 
+## Response colors
+
+Gameplay replies use colored embeds while retaining their Croatian titles and
+messages. Start and disable confirmations use titleless embeds.
+
+| Response | Color |
+| --- | --- |
+| Correct guess | Pale green `#98FB98` |
+| Victory or newly created game | Green `#008000` |
+| Wrong prefix | Orange `#FFA500` |
+| Same player twice | Light orange `#FFD580` |
+| Reused word | Purple `#800080` |
+| Unknown word | Light purple `#CBC3E3` |
+| Server-disabled guess or successful channel disable | Red `#FF0000` |
+| Existing game (including a concurrent start) or rankings (populated or empty) | Light green `#90EE90` |
+
+Guild-only notices, empty-dictionary notices and command/guess failures remain
+plain text. Ignored messages and silent database outcomes do not produce replies.
+
 ## Message diagnostics
 
 Incoming Gateway messages are logged as JSON to stderr, visible in the VS Code

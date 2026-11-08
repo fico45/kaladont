@@ -43,7 +43,10 @@ void main() {
       await h.command();
       expect(h.games.calls, ['guild', 'current']);
       expect(h.dictionary.calls, 0);
-      expect(h.context.replies.single.content, endsWith('računalo'));
+      expect(
+        h.context.replies.single.embeds!.single.description,
+        endsWith('računalo'),
+      );
     },
   );
 
@@ -80,7 +83,7 @@ void main() {
       h.games.started = false;
       await h.command();
       expect(
-        h.context.replies.single.content,
+        h.context.replies.single.embeds!.single.description,
         'U ovom kanalu već je pokrenuta igra.',
       );
       expect(h.games.starts, hasLength(1));
