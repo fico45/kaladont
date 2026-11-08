@@ -1,3 +1,6 @@
+@TestOn('vm')
+library;
+
 // Assert actual MessageBuilder payloads emitted by DiscordBot._message;
 // no copied embed-building implementation is used in this suite.
 import 'package:nyxx/nyxx.dart';
@@ -23,14 +26,14 @@ void main() {
       h.games.result = TurnResult(entry.key, word: 'oniks', answers: 7);
       await h.message();
       expect(
-        h.channel.sent.single.embeds!.single.color,
+        h.channel.sendAttempts.single.embeds!.single.color,
         DiscordColor.fromRgb(0, 200, 200),
       );
     });
     test('${entry.key.name} reply has exact Croatian title', () async {
       h.games.result = TurnResult(entry.key, word: 'oniks', answers: 7);
       await h.message();
-      expect(h.channel.sent.single.embeds!.single.title, entry.value);
+      expect(h.channel.sendAttempts.single.embeds!.single.title, entry.value);
     });
   }
 
@@ -38,7 +41,7 @@ void main() {
     h.games.result = const TurnResult(TurnStatus.victory);
     await h.message();
     expect(
-      h.channel.sent.single.embeds!.single.description,
+      h.channel.sendAttempts.single.embeds!.single.description,
       'Čestitamo! Pobijedili ste!',
     );
   });
@@ -53,7 +56,7 @@ void main() {
       );
       await h.message();
       expect(
-        h.channel.sent.single.embeds!.single.description,
+        h.channel.sendAttempts.single.embeds!.single.description,
         'Nova riječ: oniks\nMogućih odgovora: 7',
       );
     },
@@ -61,7 +64,7 @@ void main() {
 
   test('ignored malformed message sends no embed or text fallback', () async {
     await h.message(text: 'hello world!');
-    expect(h.channel.sent, isEmpty);
+    expect(h.channel.sendAttempts, isEmpty);
     expect(h.games.guesses, isEmpty);
   });
 }
