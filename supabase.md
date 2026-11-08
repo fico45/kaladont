@@ -32,9 +32,9 @@ mid-turn. The derived tables trade additional fixed database space for lower
 CPU use; the full local dictionary added approximately 97 MB including indexes
 in the October 2026 measurement. Do not rebuild on each bot startup.
 
-## Apply the initial schema
+## Apply schema migrations
 
-This application has not been deployed. Its schema is consolidated in one file:
+The baseline schema is defined in:
 `supabase/migrations/20261026000000_initial_schema.sql`. It creates the final
 optimized tables and functions directly, without intermediate versions or the
 legacy commit RPC.
@@ -47,7 +47,7 @@ supabase migration up --local
 supabase migration list --local
 ```
 
-Import the dictionary, then run `kaladont_refresh_dictionary()` before playing.
+Apply all migrations, import the dictionary, then run `kaladont_refresh_dictionary()` before playing.
 No dictionary import is bundled with the schema. Local database reset discards
 imported data, so use it only when intentionally starting over.
 
@@ -57,10 +57,18 @@ game channels were enabled, and local migration history was reconciled to the
 single initial version. Do not apply the retired development migrations.
 
 For the first hosted deployment, use `supabase db push --dry-run` to review the
-initial schema, then apply it to the linked project through the normal deployment
-process. If using the SQL Editor, run the complete file in one transaction and
+pending migrations, then apply them to the linked project through the normal deployment
+process. If using the SQL Editor, run each complete migration file in one transaction and
 maintain migration history. Start the current worker after schema setup and the
 dictionary import/refresh are complete.
+
+The forward migration `20261108000000_viable_starters.sql` excludes starters
+without another legal continuation, using the stored Croatian-letter suffix.
+It replaces the refresh function and immediately rebuilds the derived dictionary
+and starter pool, including on already-initialized databases. Stop the worker
+before applying it and restart after success. Inspect the target migration
+history first; do not reset the database or reapply the baseline. Source words,
+sessions, scores and receipts are preserved.
 
 ## Gameplay and channels
 
