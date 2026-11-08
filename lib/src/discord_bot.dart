@@ -29,6 +29,18 @@ final class DiscordBot {
   StreamSubscription<MessageCreateEvent>? _messages;
   StreamSubscription<ReadyEvent>? _ready;
   bool _closing = false;
+  final _shutdown = Completer<void>();
+  Future<void>? _closeWork;
+  final Future<NyxxGateway> Function(GatewayClientOptions)? _connectGateway;
+
+  /// Stop admission and interrupt startup without discarding accepted work.
+  void requestShutdown() {
+    if (_closing) return;
+    _closing = true;
+    _shutdown.complete();
+    _channelRefresh?.cancel();
+    _receiptCleanup?.cancel();
+  }
 
   DiscordBot({
     required this.config,
@@ -37,30 +49,42 @@ final class DiscordBot {
     required this.queue,
     required this.channels,
     required this.retention,
+    this._connectGateway,
   });
 
   Future<void> start() async {
-    await channels.refresh();
-    _channelRefresh = Timer.periodic(const Duration(minutes: 5), (_) {
-      _channelRefreshWork = _refreshChannels();
-      unawaited(_channelRefreshWork);
-    });
-    _receiptCleanupWork = _pruneReceipts();
-    unawaited(_receiptCleanupWork);
-    _receiptCleanup = Timer.periodic(const Duration(hours: 1), (_) {
-      _receiptCleanupWork = _pruneReceipts();
-      unawaited(_receiptCleanupWork);
-    });
+    if (_closing) return;
+    await Future.any([channels.refresh(), _shutdown.future]);
+    if (_closing) return;
     final commands = _createCommands();
-    final client = await Nyxx.connectGateway(
-      config.discordToken,
-      GatewayIntents.messageContent | GatewayIntents.allUnprivileged,
-      options: GatewayClientOptions(
-        loggerName: 'KaladontBot',
-        plugins: [Logging(), commands],
-      ),
+    final options = GatewayClientOptions(
+      loggerName: 'KaladontBot',
+      plugins: [Logging(), commands],
     );
-    _client = client;
+    if (_closing) return;
+    // Nyxx has no cancellation API. Keep observing the losing future so late
+    // errors are handled and a late client is closed, never installed.
+    final connecting =
+        (_connectGateway?.call(options) ??
+                Nyxx.connectGateway(
+                  config.discordToken,
+                  GatewayIntents.messageContent |
+                      GatewayIntents.allUnprivileged,
+                  options: options,
+                ))
+            .then((client) async {
+              if (_closing) {
+                await client.close();
+              } else {
+                _client = client;
+              }
+            });
+    await Future.any([connecting, _shutdown.future]);
+    if (_closing) {
+      await close();
+      return;
+    }
+    final client = _client!;
     _ready = client.onReady.listen((event) {
       logEvent(
         'info',
@@ -83,6 +107,17 @@ final class DiscordBot {
         );
       },
     );
+    // Do not launch maintenance while startup can still be interrupted.
+    _channelRefresh = Timer.periodic(const Duration(minutes: 5), (_) {
+      _channelRefreshWork = _refreshChannels();
+      unawaited(_channelRefreshWork);
+    });
+    _receiptCleanup = Timer.periodic(const Duration(hours: 1), (_) {
+      _receiptCleanupWork = _pruneReceipts();
+      unawaited(_receiptCleanupWork);
+    });
+    _receiptCleanupWork = _pruneReceipts();
+    unawaited(_receiptCleanupWork);
   }
 
   CommandsPlugin _createCommands() {
@@ -372,11 +407,12 @@ final class DiscordBot {
     }
   }
 
-  Future<void> close() async {
-    if (_closing) return;
-    _closing = true;
-    _channelRefresh?.cancel();
-    _receiptCleanup?.cancel();
+  Future<void> close() {
+    requestShutdown();
+    return _closeWork ??= _close();
+  }
+
+  Future<void> _close() async {
     try {
       await _messages?.cancel();
       await _ready?.cancel();
